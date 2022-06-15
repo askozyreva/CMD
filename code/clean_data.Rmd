@@ -1,0 +1,66 @@
+---
+title: "Clean and anonymize data"
+
+---
+
+This script creates a clean and anonymized data file (clean_df.RData). This script file is included for transparency, but it cannot be executed because the original data file cannot be shared for anonymization purposes.
+
+```{r setup, include=FALSE}
+
+if(!require("pacman")) install.packages("pacman"); library(pacman)
+p_load("tidyverse", "here", "readr", 
+          "readxl", "knitr",
+          "dplyr")
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+```{r load and filter data, include=FALSE, echo=FALSE}
+
+
+dat_path <-
+  here("data/study_1.csv")
+data <- read.csv(dat_path, stringsAsFactors=FALSE, na.strings = "") 
+
+
+
+
+df_basic<- data %>%
+  #remove unnecessary columns 
+    select(-c(id, RecordedDate, StartDate,EndDate,Status, ResponseId,
+                   DistributionChannel,UserLanguage, Create.New.Field.or.Choose.From.Dropdown..., contains("seed"))) %>% 
+  #remove empty embedded data (were not used in the study, contain empty fields)
+   select(-c(traits5a, traits5b, traits5c, traits5d,traits6a, traits6b, traits6c, traits6d)) %>% 
+      rename (duration = Duration..in.seconds.)%>% 
+   filter(age > 17) %>%
+  filter (consent == 1, Finished ==1,attention_check==3) 
+
+
+
+df <- df_basic %>%
+  #recoding # 1 = remove the posts, 0 (2) = do nothing
+     mutate(across(contains("choice"),
+                recode, "1" = 1, "2" = 0))%>% 
+# recoding so that the rating scale goes in the right direction: from do nothing to suspend
+     mutate(across(contains("rating"),
+                recode,"1" = 4,"2" = 3, "3" = 2, "4" = 1))%>%
+  # filtering NAs in responses for main outcome variables and post-main tasks blocks of questions 
+  filter(!is.na(choice_1a), !is.na(rating_1a_1), !is.na(choice_4d), !is.na(rating_4d_1), !is.na(disinfo_beliefs_2), !is.na(content_harms_2), !is.na(outcomes_severity_2))%>%
+  # adding id column
+ mutate(id = 1:n()) %>% dplyr::select(id, everything()) %>% 
+  #remove columns containing open responses for anonymization purposes
+  dplyr::select(-reasoning, - comment)
+
+
+
+save(df,file = "data/clean_df.RData")
+
+
+length(unique(df$id))
+
+colnames(df)
+
+```
+
+

@@ -1,0 +1,2348 @@
+---
+title: "Descriptive figures for the SI"
+
+---
+
+```{r setup, include=FALSE}
+
+if(!require("pacman")) install.packages("pacman"); library(pacman)
+p_load("tidyverse", "here", "readr",  "workflowr",
+          "readxl", "jtools", "broom", "kableExtra", "knitr",
+          "sjlabelled", "dplyr", "janitor", "ggplot2", "kableExtra", "cjoint", "cregg", "stringr", "wesanderson", "ggpubr", "lme4", "broom.mixed", "ggsci",  "webshot", "ggthemes", "xtable", "ggeffects", "parameters", "scales", "questionr", "ggdist", "gghalves", "cowplot", "see")
+
+
+source(here('code/functions.R'))
+
+options(scipen = 999)
+
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load and filter data, include=FALSE, echo=FALSE}
+
+scenarios <- import(here('data/scenarios.RData'))
+df <- import(here('data/df.RData'))
+
+```
+
+```{r theming, cache = FALSE}
+theme_set(theme_apa())
+theme_update(
+  panel.spacing = unit(10, "pt"),
+  legend.position = "bottom",
+  legend.justification = 0.5,
+  legend.text = element_text(size = 8),
+  legend.title = element_text(size = 8),
+  strip.text = element_text(size = 11),
+  plot.title = element_text(size = 12),
+  plot.title.position = "plot",
+  axis.text.y = element_text(size = 10),
+  axis.text.x = element_text(size = 10),
+  axis.title.x = element_text(size = 10),
+  axis.title.y = element_text(size = 10),
+  panel.border = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  axis.line.y = element_line("grey", size = 0.2),
+  axis.line.x = element_line("grey", size = 0.2)
+)
+
+```
+
+
+```{r table demographics, include=TRUE}
+
+
+demo <- df %>% dplyr::select(id, gender, age, education, ethnicity, state,  party, ideology) %>% 
+  mutate(gender = factor(
+    gender,
+    levels = c(1, 2, 3, 4),
+    labels = c("Male", "Female", "Other", "Prefer not to say")
+  )) %>%
+  mutate(education = factor(
+    education,
+    levels = c(1, 2, 3, 4, 5, 6,7, 8),
+    labels = c("Less than high school", "High school", "Some college", "Associate or BA degree", "Associate or BA degree", "Master's degree", "Doctoral degree", "Doctoral degree")
+  ))%>%
+  mutate(ethnicity = factor(
+    ethnicity,
+    levels = c(1, 2, 3, 4,5,6,7),
+    labels = c("White", "Black or African-American", "Hispanic or Latino", "Asian or Asian-American", "Other", "Asian or Asian-American", "Other")
+  )) %>%
+  mutate(state = factor(
+    state,
+    levels = c(1, 2, 3, 4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19, 20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51),
+    labels = c("South", "West", "West", "South", "West",
+               "West","Northeast", "South", "South", "South", 
+               "South", "West", "West","Midwest", "Midwest", 
+               "Midwest", "Midwest", "South", "South", "Northeast",
+               "South", "Northeast","Midwest","Midwest", "South", 
+               "Midwest","West", "Midwest", "West", "Northeast",
+               "Northeast", "West", "Northeast","South", "Midwest", 
+               "Midwest", "South", "West", "Northeast","Northeast",
+               "South", "Midwest", "South", "South", "West",
+               "Northeast", "South", "West", "South", "Midwest",
+               "West")
+  )) %>% 
+  mutate(agegroup = case_when(age >= 18  & age <= 24 ~ '1',
+                              age >= 25  & age <= 34 ~ '2',
+                              age >= 35  & age <= 44 ~ '3',
+                              age >= 45  & age <= 54 ~ '4',
+                              age >= 55  & age <= 64 ~ '5',
+                              age >= 65  ~ '6',
+  ))%>%
+  mutate(agegroup = factor(
+    agegroup,
+    levels = c(1, 2, 3, 4,5,6),
+    labels = c("Age (18-24)", "Age (25-34)", "Age (35-44)", "Age (45-54)", "Age (55-64)", "Age (65+)")
+  )) %>%
+  dplyr::select(-age) %>% 
+  pivot_longer(names_to = "measures", 
+               values_to = "question",
+               cols= c(gender, education, ethnicity, state, agegroup,  party, ideology)) %>% 
+  group_by(measures, question) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>% 
+  group_by(measures) %>% 
+  mutate(N = sum(n),
+         prop = n / N,
+         value = round(100* prop, digits = 1)
+  ) %>% 
+  dplyr::select(-prop, -N) %>% 
+  mutate(measures = factor(measures, levels = c("gender", "agegroup", "education", "state", "ethnicity",  "party", "ideology"),
+                           labels = c("Gender", "Age group", "Education", "Region of residency", "Ethnicity", "Political party", "Political ideology"))) %>% 
+  drop_na() %>% 
+  arrange(factor(measures, levels = c("Gender", "Age group", "Education", "Region of residency", "Ethnicity", "Political party", "Political ideology")))
+
+
+
+duration <- df %>% dplyr::select(duration) %>% 
+  mutate (duration = as.numeric(duration) / 60) %>% 
+  summarise(duration_mean = round(mean(duration)), duration_median = round(median(duration))) 
+
+age <- df %>%  dplyr::select(age) %>% 
+  summarise(age_mean = round(mean(age)))
+
+sample <- df %>%  dplyr::select(id) %>% 
+  summarise(N = n())
+
+demo_plus <- cbind(sample, duration) %>% 
+  pivot_longer(names_to = "question", 
+               values_to = "value",
+               cols= c(N, duration_mean, duration_median)) %>% 
+  mutate(question = factor(question, levels = c("N", "duration_mean", "duration_median"),
+                           labels = c("N", "Duration (mean)", "Duration (median)"))) %>% 
+  arrange(factor(question, levels = c("N", "Duration (mean)", "Duration (median)")))
+
+
+demo_t <-demo %>%
+  ungroup() %>% 
+  dplyr::select(-measures, -n)
+
+demo_final <- rbind(demo_plus, demo_t) 
+
+table_demo <- demo_final %>%
+  kbl(col.names = c("", "")) %>%
+  kable_paper("striped", full_width = F, position = "left") %>%
+  column_spec(2, bold = T, color = "black", background = "#e5e5e5", width = "10em") %>%
+  column_spec(1, bold = F, color = "black", width = "40em") %>%
+  pack_rows("Sample size", 1,1) %>%
+  pack_rows("Duration (minutes)", 2,3)%>%
+  pack_rows("Gender (%)", 4,6)%>%
+  pack_rows("Age group (%)", 7,12)%>%
+  pack_rows("Education (%)", 13,18)%>%
+  pack_rows("Region of residency (%)", 19,22)%>%
+  pack_rows("Ethnicity (%)", 23,27) %>% 
+  pack_rows("Political party (%)", 28,30) %>%
+  pack_rows("Political ideology (%)", 31,33) %>%
+  save_kable(file = here("figs/table_demo.png"), zoom = 1.5)
+
+table_demo
+
+
+table_demo_tex <- demo_final %>%
+  kbl(booktabs = TRUE,
+      caption = "Misinformation policies \\label{tbl:demographics}",
+      table.envir = "table*",
+      col.names = c("", ""),
+      # col.names = c("","Wave 1", "Wave 2","Wave 3", "Wave4"),
+      # align = c("l", "r", "r", "r"),
+      format = "latex"
+  ) %>%
+  kable_paper("striped", full_width = F, position = "left") %>%
+  pack_rows("Sample size", 1,1) %>%
+  pack_rows("Duration (minutes)", 2,3)%>%
+  pack_rows("Gender (%)", 4,6)%>%
+  pack_rows("Age group (%)", 7,12)%>%
+  pack_rows("Education (%)", 13,18)%>%
+  pack_rows("Region of residency (%)", 19,22)%>%
+  pack_rows("Ethnicity (%)", 23,27) %>% 
+  pack_rows("Political party (%)", 28,30) %>%
+  pack_rows("Political ideology (%)", 31,33)
+table_demo_tex
+
+
+
+write_lines(table_demo_tex, here("figs/tbl_demo.tex"))
+
+
+```
+
+Table frequencies
+
+```{r}
+sc <-
+  scenarios %>% dplyr::select(id, level_1, level_2, level_3, level_4, level_5, level_6, level_7)
+
+freq_a <-
+  rbind(
+    freq(sc$level_1),
+    freq(sc$level_2),
+    freq(sc$level_3),
+    freq(sc$level_4),
+    freq(sc$level_5),
+    freq(sc$level_6)
+  )
+freq_7 <- freq(sc$level_7)
+freq_sum <- rbind(freq_7,
+                  c(colSums(freq_7[, 1:2])))
+freq <- rbind(freq_a, freq_sum) %>%
+  select(-"val%")
+
+
+table_freq <- freq %>%
+  kbl(col.names = c("n", "%")) %>%
+  kable_paper("striped", full_width = F, position = "left") %>%
+  pack_rows("Person", 1, 4) %>%
+  pack_rows("Person's partisanship", 5, 7) %>%
+  pack_rows("N of followers", 8, 10) %>%
+  pack_rows("Action/Scenario type", 11, 14) %>%
+  pack_rows("Level of falseness", 15, 16) %>%
+  pack_rows("Pattern of behavior", 17, 18) %>%
+  pack_rows("Consequences", 19, 21) %>%
+  pack_rows("Total N per attribute", 22, 22) %>%
+  save_kable(file = here("figs/table_freq.png"), zoom = 1.5)
+table_freq
+
+table_freq_tex <- freq %>%
+  kbl(
+    booktabs = TRUE,
+    caption = "Frequencies of conjoint features\\label{tbl:frequencies}",
+    table.envir = "table*",
+    col.names = c("n", "%"),
+    format = "latex"
+  ) %>%
+  kable_paper("striped", full_width = F, position = "left") %>%
+  pack_rows("Person", 1, 4) %>%
+  pack_rows("Person's partisanship", 5, 7) %>%
+  pack_rows("N of followers", 8, 10) %>%
+  pack_rows("Action/Scenario type", 11, 14) %>%
+  pack_rows("Level of falseness", 15, 16) %>%
+  pack_rows("Pattern of behavior", 17, 18) %>%
+  pack_rows("Consequences", 19, 21) %>%
+  pack_rows("Total N per attribute", 22, 22)
+
+write_lines(table_freq_tex, here("figs/tbl_freq.tex"))
+
+```
+
+
+
+```{r, free speech vs mitigating disinfo, pre, by party, fig.cap = "", include=FALSE}
+
+freespeech_palette <- c("#4084fb", 	"#fbb740", "#8bb4fd", "#fdd38b")
+
+
+speech_disinfo_df <-
+  df %>% dplyr::select (id, speech_disinfo_pre, platform_pre) %>%
+  mutate(speech_disinfo_pre = factor(
+    speech_disinfo_pre,
+    levels = c("1", "2"),
+    labels = c("Pro freedom of expression", "Pro preventing disinformation")
+  )) %>%
+  mutate(platform_pre = factor(
+    platform_pre,
+    levels = c("1", "2"),
+    labels = c(
+      "Platform A\n(free speech priority)",
+      "Platform B\n(strict content moderation)"
+    )
+  )) %>%
+  drop_na() %>%
+  pivot_longer(
+    names_to = "freespeech_type",
+    values_to = "question",
+    cols = c(speech_disinfo_pre, platform_pre)
+  ) %>%
+  group_by(freespeech_type, question) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>%
+  group_by(freespeech_type) %>%
+  mutate(N = sum(n),
+         prop = n / N,
+         perc = fnc_perc2(prop)) %>%
+  mutate(freespeech_type = factor(
+    freespeech_type,
+    levels = c("speech_disinfo_pre", "platform_pre"),
+    labels = c(
+      "Value choice:\nfreedom of expression\nvs. disinformation",
+      "Platform choice:\nfree speech priority\nvs. content moderation"
+    )
+  )) %>%
+  mutate(question = factor(
+    question,
+    levels = c(
+      "Pro freedom of expression",
+      "Pro preventing disinformation",
+      "Platform A\n(free speech priority)",
+      "Platform B\n(strict content moderation)"
+    )
+  )) %>%
+  mutate(side = ifelse(
+    str_detect(question, "disinformation|moderation"),
+    "right",
+    "left"
+  )) %>%
+  drop_na()
+
+
+
+# find numbers for right side
+speech_disinfo_right <- speech_disinfo_df %>%
+  filter(side == "right")
+
+# find numbers for left side
+speech_disinfo_left <- speech_disinfo_df %>%
+  filter(side == "left")
+
+
+
+speech_disinfo <- ggplot() +
+  scale_x_discrete("") +
+  scale_y_continuous("",
+                     guide = NULL) +
+  geom_bar(
+    data = speech_disinfo_right,
+    aes(
+      x = fct_rev(freespeech_type),
+      y = perc,
+      fill = question
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = speech_disinfo_right,
+    aes(
+      x = freespeech_type,
+      y = perc,
+      label = perc,
+      group = question
+    ),
+    size = 4,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_bar(
+    data = speech_disinfo_left,
+    aes(
+      x = fct_rev(freespeech_type),
+      y = -perc,
+      fill = question
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = speech_disinfo_left,
+    aes(
+      x = freespeech_type,
+      y = -perc,
+      label = perc,
+      group = question
+    ),
+    size = 4,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_hline(yintercept = 0) +
+  coord_flip() +
+  theme(panel.grid.major = element_blank()) +
+  theme(legend.position = "none", legend.title = element_blank()) +
+  theme(axis.text.y = element_text(face = "bold")) +
+  scale_fill_manual(
+    values = freespeech_palette,
+    breaks = c(
+      "Pro freedom of expression",
+      "Pro preventing disinformation",
+      "Platform A\n(free speech priority)",
+      "Platform B\n(strict content moderation)"
+    )
+  ) +
+  labs(title = "A. Free speech vs. disinformation")
+speech_disinfo
+
+
+# by party
+
+speech_disinfo_p <-
+  df %>% dplyr::select (id, speech_disinfo_pre, platform_pre, party) %>%
+  mutate(speech_disinfo_pre = factor(
+    speech_disinfo_pre,
+    levels = c("1", "2"),
+    labels = c("Pro freedom of expression", "Pro preventing disinformation")
+  )) %>%
+  mutate(platform_pre = factor(
+    platform_pre,
+    levels = c("1", "2"),
+    labels = c(
+      "Platform A\n(free speech priority)",
+      "Platform B\n(strict content moderation)"
+    )
+  )) %>%
+  drop_na() %>%
+  pivot_longer(
+    names_to = "freespeech_type",
+    values_to = "question",
+    cols = c(speech_disinfo_pre, platform_pre)
+  ) %>%
+  group_by(party, freespeech_type, question) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>%
+  group_by(party, freespeech_type) %>%
+  mutate(N = sum(n),
+         prop = n / N,
+         perc = fnc_perc2(prop)) %>%
+  mutate(freespeech_type = factor(
+    freespeech_type,
+    levels = c("speech_disinfo_pre", "platform_pre"),
+    labels = c("Value choice", "Platform choice")
+  )) %>%
+  mutate(question = factor(
+    question,
+    levels = c(
+      "Pro freedom of expression",
+      "Pro preventing disinformation",
+      "Platform A\n(free speech priority)",
+      "Platform B\n(strict content moderation)"
+    )
+  )) %>%
+  mutate(party = factor(
+    party,
+    levels = c("Democrat", "Independent or not sure", "Republican"),
+    labels = c("Democrat", "Independent", "Republican")
+  )) %>%
+  mutate(side = ifelse(
+    str_detect(question, "disinformation|moderation"),
+    "right",
+    "left"
+  )) %>%
+  drop_na()
+
+
+
+# find numbers for right side
+speech_disinfo_rightp <- speech_disinfo_p %>%
+  filter(side == "right")
+
+# find numbers for left side
+speech_disinfo_leftp <- speech_disinfo_p %>%
+  filter(side == "left")
+
+
+
+speech_disinfo_p <- ggplot() +
+  scale_x_discrete("") +
+  scale_y_continuous("",
+                     guide = NULL) +
+  geom_bar(
+    data = speech_disinfo_rightp,
+    aes(x = party,
+        y = perc,
+        fill = question),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = speech_disinfo_rightp,
+    aes(
+      x = party,
+      y = perc,
+      label = perc,
+      group = question
+    ),
+    size = 4,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_bar(
+    data = speech_disinfo_leftp,
+    aes(x = party,
+        y = -perc,
+        fill = question),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = speech_disinfo_leftp,
+    aes(
+      x = party,
+      y = -perc,
+      label = perc,
+      group = question
+    ),
+    size = 4,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_hline(yintercept = 0) +
+  coord_flip() +
+  facet_grid(~  freespeech_type, scales = "free") +
+  theme(panel.grid.major = element_blank()) +
+  theme(legend.position = "none") +
+  theme(axis.text.y = element_text(face = "bold")) +
+  scale_fill_manual(
+    values = freespeech_palette,
+    breaks = c(
+      "Pro freedom of expression",
+      "Pro preventing disinformation",
+      "Platform A\n(free speech priority)",
+      "Platform B\n(strict content moderation)"
+    )
+  ) +
+  labs(title = "B. Free speech vs. disinformation by respondents' party affiliation")
+speech_disinfo_p
+
+legend_1 <- get_legend(
+  speech_disinfo_p +
+    guides(color = guide_legend(nrow = 1)) +
+    theme(
+      legend.position = "bottom",
+      legend.title = element_blank(),
+      legend.justification = "left",
+      legend.key.height = unit(0.6, 'cm'),
+      legend.key.width = unit(0.6, 'cm')
+    )
+)
+
+
+speech_disinfo_plot <-
+  plot_grid(
+    speech_disinfo,
+    speech_disinfo_p,
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(0.8, 1),
+    scale = c(0.9, 0.9)
+  )
+speech_disinfo_plot_1 <-
+  plot_grid(
+    speech_disinfo_plot,
+    legend_1,
+    ncol = 1,
+    rel_heights = c(1, 0.07),
+    scale = c(0.95, 0.8)
+  )
+
+ggsave(
+  filename = here("figs/freespeech_disinfo.png"),
+  plot = speech_disinfo_plot_1,
+  dpi = 300,
+  units = 'cm',
+  height = 14,
+  width = 20
+)
+
+
+ggsave(
+  filename = here("figs/freespeech_disinfo.pdf"),
+  plot = speech_disinfo_plot_1,
+  dpi = 300,
+  units = 'cm',
+  height = 14,
+  width = 20
+)
+  
+```
+
+
+
+```{r, free speech vs mitigating disinfo, POST, by party, fig.cap = "", include=FALSE}
+
+freespeech_palette <- c("#4084fb", 	"#fbb740", "#8bb4fd", "#fdd38b")
+
+
+speech_disinfo_post <-
+  df %>% dplyr::select (id, speech_disinfo_post, platform_post) %>%
+  mutate(speech_disinfo_post = factor(
+    speech_disinfo_post,
+    levels = c("1", "2"),
+    labels = c("Pro freedom of expression", "Pro preventing disinformation")
+  )) %>%
+  mutate(platform_post = factor(
+    platform_post,
+    levels = c("1", "2"),
+    labels = c(
+      "Platform A\n(free speech priority)",
+      "Platform B\n(strict content moderation)"
+    )
+  )) %>%
+  drop_na() %>%
+  pivot_longer(
+    names_to = "freespeech_type",
+    values_to = "question",
+    cols = c(speech_disinfo_post, platform_post)
+  ) %>%
+  group_by(freespeech_type, question) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>%
+  group_by(freespeech_type) %>%
+  mutate(N = sum(n),
+         prop = n / N,
+         perc = fnc_perc2(prop)) %>%
+  mutate(freespeech_type = factor(
+    freespeech_type,
+    levels = c("speech_disinfo_post", "platform_post"),
+    labels = c(
+      "Value choice:\nfreedom of expression\nvs. disinformation",
+      "Platform choice:\nfree speech priority\nvs. content moderation"
+    )
+  )) %>%
+  mutate(side = ifelse(str_detect(question, "disinformation|B"), "right", "left")) %>%
+  drop_na()
+
+
+
+# find numbers for right side
+speech_disinfo_post_right <- speech_disinfo_post %>%
+  filter(side == "right")
+
+# find numbers for left side
+speech_disinfo_post_left <- speech_disinfo_post %>%
+  filter(side == "left")
+
+
+
+speech_disinfo_post_plot <- ggplot() +
+  scale_x_discrete("") +
+  scale_y_continuous("",
+                     guide = NULL) +
+  geom_bar(
+    data = speech_disinfo_post_right,
+    aes(
+      x = fct_rev(freespeech_type),
+      y = perc,
+      fill = question
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = speech_disinfo_post_right,
+    aes(
+      x = freespeech_type,
+      y = perc,
+      label = perc,
+      group = question
+    ),
+    size = 4,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_bar(
+    data = speech_disinfo_post_left,
+    aes(
+      x = fct_rev(freespeech_type),
+      y = -perc,
+      fill = question
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = speech_disinfo_post_left,
+    aes(
+      x = freespeech_type,
+      y = -perc,
+      label = perc,
+      group = question
+    ),
+    size = 4,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_hline(yintercept = 0) +
+  coord_flip() +
+  theme(panel.grid.major = element_blank()) +
+  theme(legend.position = "none", legend.title = element_blank()) +
+  theme(axis.text.y = element_text(face = "bold")) +
+  scale_fill_manual(
+    values = freespeech_palette,
+    breaks = c(
+      "Pro freedom of expression",
+      "Pro preventing disinformation",
+      "Platform A\n(free speech priority)",
+      "Platform B\n(strict content moderation)"
+    )
+  ) +
+  labs(title = "C. Free speech vs. disinformation (after the main task)")
+speech_disinfo_post_plot
+
+
+# by party
+
+speech_disinfo_p_post <-
+  df %>% dplyr::select (id, speech_disinfo_post, platform_post, party) %>%
+  mutate(speech_disinfo_post = factor(
+    speech_disinfo_post,
+    levels = c("1", "2"),
+    labels = c("Pro freedom of expression", "Pro preventing disinformation")
+  )) %>%
+  mutate(platform_post = factor(
+    platform_post,
+    levels = c("1", "2"),
+    labels = c(
+      "Platform A\n(free speech priority)",
+      "Platform B\n(strict content moderation)"
+    )
+  )) %>%
+  drop_na() %>%
+  pivot_longer(
+    names_to = "freespeech_type",
+    values_to = "question",
+    cols = c(speech_disinfo_post, platform_post)
+  ) %>%
+  group_by(party, freespeech_type, question) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>%
+  group_by(party, freespeech_type) %>%
+  mutate(N = sum(n),
+         prop = n / N,
+         perc = fnc_perc2(prop)) %>%
+  mutate(freespeech_type = factor(
+    freespeech_type,
+    levels = c("speech_disinfo_post", "platform_post"),
+    labels = c("Value choice", "Platform choice")
+  )) %>%
+  mutate(party = factor(
+    party,
+    levels = c("Democrat", "Independent or not sure", "Republican"),
+    labels = c("Democrat", "Independent", "Republican")
+  )) %>%
+  mutate(side = ifelse(str_detect(question, "disinformation|B"), "right", "left")) %>%
+  drop_na()
+
+
+
+# find numbers for right side
+speech_disinfo_post_rightp <- speech_disinfo_p_post %>%
+  filter(side == "right")
+
+# find numbers for left side
+speech_disinfo_post_leftp <- speech_disinfo_p_post %>%
+  filter(side == "left")
+
+
+
+speech_disinfo_p_post_plot <- ggplot() +
+  scale_x_discrete("") +
+  scale_y_continuous("",
+                     guide = NULL) +
+  geom_bar(
+    data = speech_disinfo_post_rightp,
+    aes(x = party,
+        y = perc,
+        fill = question),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = speech_disinfo_post_rightp,
+    aes(
+      x = party,
+      y = perc,
+      label = perc,
+      group = question
+    ),
+    size = 4,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_bar(
+    data = speech_disinfo_post_leftp,
+    aes(x = party,
+        y = -perc,
+        fill = question),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = speech_disinfo_post_leftp,
+    aes(
+      x = party,
+      y = -perc,
+      label = perc,
+      group = question
+    ),
+    size = 4,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_hline(yintercept = 0) +
+  coord_flip() +
+  facet_grid(~  freespeech_type, scales = "free") +
+  theme(panel.grid.major = element_blank()) +
+  theme(legend.position = "none") +
+  theme(axis.text.y = element_text(face = "bold")) +
+  scale_fill_manual(
+    values = freespeech_palette,
+    breaks = c(
+      "Pro freedom of expression",
+      "Pro preventing disinformation",
+      "Platform A\n(free speech priority)",
+      "Platform B\n(strict content moderation)"
+    )
+  ) +
+  labs(title = "D. Free speech vs. disinformation by party (after the main task)")
+speech_disinfo_p_post_plot
+
+speech_disinfo_plot_post <-
+  plot_grid(
+    speech_disinfo_post_plot,
+    speech_disinfo_p_post_plot,
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(0.8, 1),
+    scale = c(0.9, 0.9)
+  )
+
+speech_disinfo <-
+  plot_grid(speech_disinfo_plot,
+            speech_disinfo_plot_post,
+            ncol = 2,
+            nrow = 1)
+
+legend_2 <- get_legend(
+  speech_disinfo_post_plot +
+    guides(color = guide_legend(nrow = 1)) +
+    theme(
+      legend.position = "bottom",
+      legend.title = element_blank(),
+      legend.justification = "center",
+      legend.key.height = unit(0.6, 'cm'),
+      legend.key.width = unit(0.6, 'cm')
+    )
+)
+
+
+speech_disinfo_2 <-
+  plot_grid(
+    speech_disinfo,
+    legend_2,
+    ncol = 1,
+    rel_heights = c(1, 0.09),
+    scale = c(0.95, 1)
+  )
+
+
+ggsave(
+  filename = here("figs/free_preppost.png"),
+  plot = speech_disinfo_2,
+  dpi = 300,
+  units = 'cm',
+  height = 20,
+  width = 30
+)
+
+
+ggsave(
+  filename = here("figs/free_preppost.pdf"),
+  plot = speech_disinfo_2,
+  dpi = 300,
+  units = 'cm',
+  height = 20,
+  width = 30
+)
+  
+```
+
+
+# Rating of all statements, actions, and outcomes in the scenarios
+
+## Rating accuracy 
+
+```{r, plot rating accuracy,  fig.width = 10, fig.height= 6, fig.cap = "Rating accuracy", echo=TRUE}
+
+
+
+rating_accuracy <-
+  df %>% dplyr::select(id, contains("disinfo_beliefs")) %>%
+  drop_na() %>%
+  mutate(across(
+    contains("disinfo_beliefs_2"),
+    #	1Definitely false	Probably false	Do not know	Probably true	Definitely true5
+    recode,
+    "1" = 5,
+    "2" = 4,
+    "3" = 3,
+    "4" = 2,
+    "5" = 1
+  )) %>%
+  mutate(across(
+    contains("disinfo_beliefs_4"),
+    #	1Definitely false	Probably false	Do not know	Probably true	Definitely true5
+    recode,
+    "1" = 5,
+    "2" = 4,
+    "3" = 3,
+    "4" = 2,
+    "5" = 1
+  )) %>%
+  pivot_longer (
+    names_to = "statement",
+    values_to = "rating",
+    cols = contains("disinfo_beliefs")
+  ) %>%
+  mutate(rating = factor(
+    rating,
+    levels = c(1, 2, 3, 4, 5),
+    labels = c(
+      "Definitely or probably false",
+      "Definitely or probably false",
+      "Don't know",
+      "Definitely or probably true",
+      "Definitely or probably true"
+    )
+  )) %>%
+  mutate(statement = factor(
+    statement,
+    levels = c(
+      "disinfo_beliefs_1",
+      "disinfo_beliefs_2",
+      "disinfo_beliefs_3",
+      "disinfo_beliefs_4"
+    ),
+    labels = c(
+      "The 2020 U.S. Presidential election\nwas stolen from Donald Trump.",
+      "REV: It is a well established historical fact\nthat 6 million Jews died in the Holocaust.",
+      "The FDA-approved COVID-19 vaccines\ncan cause infertility.",
+      "REV: There is an overwhelming scientific consensus\nthat human activity (e.g., burning fossil fuels)\nis the leading cause of climate change."
+    )
+  )) %>%
+  group_by(statement, rating, .drop = FALSE) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  group_by(statement) %>%
+  mutate(prop = n / sum(n),
+         perc = fnc_perc2(prop))
+
+
+rating_accuracy_x <- rating_accuracy %>%
+  mutate(side = ifelse(str_detect(rating, "false"), "left", "right"))
+
+
+
+# find numbers for right side
+rating_accuracy_right <- rating_accuracy_x %>%
+  filter(side == "right")
+
+# find numbers for left side
+rating_accuracy_left <- rating_accuracy_x %>%
+  filter(side == "left")
+
+
+fig_acc_palette  <- c("#7ec2bd",  "#fa654a", "#ccd5dd")
+
+
+plot_accuracy2 <- ggplot() +
+  scale_x_discrete("") +
+  scale_y_continuous("",
+                     guide = NULL) +
+  geom_bar(
+    data = rating_accuracy_right,
+    aes(
+      x = fct_rev(statement),
+      y = perc,
+      fill = fct_rev(rating)
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = rating_accuracy_right,
+    aes(
+      x = statement,
+      y = perc,
+      label = perc,
+      group = fct_rev(rating)
+    ),
+    size = 3.5,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_bar(
+    data = rating_accuracy_left,
+    aes(
+      x = fct_rev(statement),
+      y = -perc,
+      fill = rating
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = rating_accuracy_left,
+    aes(
+      x = statement,
+      y = -perc,
+      label = perc,
+      group = rating
+    ),
+    size = 3.5,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_hline(yintercept = 0) +
+  coord_flip() +
+  guides(fill = guide_legend(reverse = FALSE)) +
+  theme(panel.grid.major = element_blank()) +
+  theme(legend.position = "none", legend.title = element_blank()) +
+  guides(fill = guide_legend(reverse = FALSE, ncol = 2)) +
+  theme(axis.text.y = element_text(face = "bold")) +
+  scale_fill_manual(values = fig_acc_palette) +
+  labs(title = "A. Rating accuracy") +
+  labs(subtitle = "Please indicate for each of the following statements whether you think it is true or false.", y = "% of respondents", x =
+         "")
+plot_accuracy2
+
+
+# Rating accuracy by party affiliation
+
+
+
+
+rating_accuracy_p <-
+  df %>% dplyr::select(id, contains("disinfo_beliefs"), party) %>%
+  drop_na() %>%
+  mutate(across(
+    contains("disinfo_beliefs_2"),
+    #	1Definitely false	Probably false	Do not know	Probably true	Definitely true5
+    recode,
+    "1" = 5,
+    "2" = 4,
+    "3" = 3,
+    "4" = 2,
+    "5" = 1
+  )) %>%
+  mutate(across(
+    contains("disinfo_beliefs_4"),
+    #	1Definitely false	Probably false	Do not know	Probably true	Definitely true5
+    recode,
+    "1" = 5,
+    "2" = 4,
+    "3" = 3,
+    "4" = 2,
+    "5" = 1
+  )) %>%
+  pivot_longer (
+    names_to = "statement",
+    values_to = "rating",
+    cols = contains("disinfo_beliefs")
+  ) %>%
+  mutate(rating = factor(
+    rating,
+    levels = c(1, 2, 3, 4, 5),
+    labels = c(
+      "Definitely or probably false",
+      "Definitely or probably false",
+      "Don't know",
+      "Definitely or probably true",
+      "Definitely or probably true"
+    )
+  )) %>%
+  mutate(statement = factor(
+    statement,
+    levels = c(
+      "disinfo_beliefs_1",
+      "disinfo_beliefs_2",
+      "disinfo_beliefs_3",
+      "disinfo_beliefs_4"
+    ),
+    labels = c(
+      "Election was\nstolen from Trump",
+      "REV: Holocaust\nis not true",
+      "COVID-19 vaccines\ncause infertility.",
+      "REV: Climate change\nconsenus is not true."
+    )
+  )) %>%
+  group_by(party, statement, rating, .drop = FALSE) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  group_by(party, statement) %>%
+  mutate(prop = n / sum(n),
+         perc = fnc_perc2(prop))
+
+rating_accuracy_px <- rating_accuracy_p %>%
+  mutate(side = ifelse(str_detect(rating, "false"), "left", "right"))
+
+
+
+# find numbers for right side
+rating_accuracy_p_right <- rating_accuracy_px %>%
+  filter(side == "right")
+
+# find numbers for left side
+rating_accuracy_p_left <- rating_accuracy_px %>%
+  filter(side == "left")
+
+
+plot_accuracy_party <- ggplot() +
+  scale_x_discrete("") +
+  scale_y_continuous("",
+                     guide = NULL) +
+  geom_bar(
+    data = rating_accuracy_p_right,
+    aes(
+      x = statement,
+      y = perc,
+      fill = fct_rev(rating)
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = rating_accuracy_p_right,
+    aes(
+      x = statement,
+      y = perc,
+      label = perc,
+      group = fct_rev(rating)
+    ),
+    size = 3,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_bar(
+    data = rating_accuracy_p_left,
+    aes(x = statement,
+        y = -perc,
+        fill = rating),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = rating_accuracy_p_left,
+    aes(
+      x = statement,
+      y = -perc,
+      label = perc,
+      group = rating
+    ),
+    size = 3,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_hline(yintercept = 0) +
+  # coord_flip() +
+  guides(fill = guide_legend(reverse = FALSE)) +
+  facet_wrap( ~ party) +
+  theme(panel.grid.major = element_blank()) +
+  theme(legend.position = "bottom", legend.title = element_blank()) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_manual(values = fig_acc_palette) +
+  labs(title = "B. Rating accuracy by respondents' party affiliation")
+plot_accuracy_party
+
+
+plot_acc <-
+  plot_grid(
+    plot_accuracy2,
+    plot_accuracy_party,
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(.6, 1),
+    scale = c(0.95, 0.95)
+  )
+
+ggsave(
+  filename = here("figs/plot_accuracy.png"),
+  plot = plot_acc,
+  dpi = 300,
+  units = 'cm',
+  height = 24,
+  width = 20
+)
+
+ggsave(
+  filename = here("figs/plot_accuracy.pdf"),
+  plot = plot_acc,
+  dpi = 300,
+  units = 'cm',
+  height = 24,
+  width = 20
+)
+
+```
+## Rating harms
+
+```{r, plot rating harms,  fig.width = 12, fig.height= 6, fig.cap = "Rating harms", echo=TRUE}
+
+
+
+rating_harms <-
+  df %>% dplyr::select(id, contains("content_harms")) %>%
+  drop_na() %>%
+  pivot_longer (
+    names_to = "statement",
+    values_to = "rating",
+    cols = contains("content_harms")
+  ) %>%
+  mutate(rating = factor(
+    rating,
+    levels = c(1, 2, 3, 4, 5),
+    labels = c(
+      "Not at all harmful",
+      "Slightly harmful",
+      "Somewhat harmful",
+      "Very harmful",
+      "Extremely harmful"
+    )
+  )) %>%
+  mutate(statement = factor(
+    statement,
+    levels = c(
+      "content_harms_1",
+      "content_harms_2",
+      "content_harms_3",
+      "content_harms_4"
+    ),
+    labels = c(
+      "Democratic election denial",
+      "Anti-vaccination",
+      "Holocaust denial",
+      "Climate change denial"
+    )
+  )) %>%
+  group_by(statement, rating, .drop = FALSE) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  group_by(statement) %>%
+  mutate(prop = n / sum(n),
+         perc = fnc_perc2(prop))
+
+tbl_red <- rating_harms %>%
+  mutate(red = ifelse(
+    rating == "Extremely harmful" |
+      rating == "Very harmful",
+    TRUE,
+    FALSE
+  )) %>%
+  filter(red == TRUE) %>%
+  group_by(statement) %>%
+  summarise(prop_red = sum(perc)) %>%
+  arrange(desc(prop_red))
+
+plot_harms <- rating_harms %>%
+  mutate(statement = ordered(statement, levels = pull(tbl_red, statement))) %>%
+  ggplot(aes(x = fct_rev(statement),
+             y = perc)) +
+  geom_col(aes(fill = rating)) +
+  geom_text(
+    aes(
+      x = statement,
+      y = perc,
+      label = perc,
+      group = rating
+    ),
+    size = 4,
+    colour = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5),
+    inherit.aes = TRUE
+  ) +
+  theme(legend.position = "bottom", legend.title = element_blank()) +
+  scale_fill_brewer(palette = "RdBu", direction = -1) +
+  coord_flip() +
+  guides(fill = guide_legend(
+    reverse = TRUE,
+    title.position = "top",
+    title.hjust = .5,
+    ncol = 3
+  )) +
+  labs(
+    title = "A. Rating harms of content",
+    subtitle = "Please indicate how harmful, if at all, do you think it is\nfor the following content to be widely shared on social media?",
+    y = "% of respondents",
+    x =
+      ""
+  )
+
+
+rating_harms_p <-
+  df %>% dplyr::select(id, contains("content_harms"), party) %>%
+  drop_na() %>%
+  pivot_longer (
+    names_to = "statement",
+    values_to = "rating",
+    cols = contains("content_harms")
+  ) %>%
+  mutate(rating = factor(
+    rating,
+    levels = c(1, 2, 3, 4, 5),
+    labels = c(
+      "Not at all harmful",
+      "Slightly harmful",
+      "Somewhat harmful",
+      "Very harmful",
+      "Extremely harmful"
+    )
+  )) %>%
+  mutate(statement = factor(
+    statement,
+    levels = c(
+      "content_harms_1",
+      "content_harms_2",
+      "content_harms_3",
+      "content_harms_4"
+    ),
+    labels = c(
+      "Democratic election denial",
+      "Anti-vaccination",
+      "Holocaust denial",
+      "Climate change denial"
+    )
+  )) %>%
+  group_by(party, statement, rating, .drop = FALSE) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  group_by(party, statement) %>%
+  mutate(prop = n / sum(n),
+         perc = fnc_perc2(prop))
+
+tbl_red <- rating_harms_p %>%
+  mutate(red = ifelse(
+    rating == "Extremely harmful" |
+      rating == "Very harmful",
+    TRUE,
+    FALSE
+  )) %>%
+  filter(red == TRUE) %>%
+  group_by(statement) %>%
+  summarise(prop_red = sum(perc)) %>%
+  arrange(desc(prop_red))
+
+plot_harms_p <- rating_harms_p %>%
+  mutate(statement = ordered(statement, levels = pull(tbl_red, statement))) %>%
+  ggplot(aes(x = fct_rev(statement),
+             y = perc)) +
+  geom_col(aes(fill = rating)) +
+  geom_text(
+    aes(
+      x = statement,
+      y = perc,
+      label = perc,
+      group = rating
+    ),
+    size = 4,
+    colour = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5),
+    inherit.aes = TRUE
+  ) +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "RdBu", direction = -1) +
+  facet_wrap( ~ party, ncol = 1) +
+  coord_flip() +
+  labs(title = "B. Rating harms by respondents' party affiliation", y = "% of respondents", x =
+         "")
+
+harms <-
+  plot_grid(
+    plot_harms,
+    plot_harms_p,
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(0.6, 0.9),
+    scale = c(0.95, 0.95)
+  )
+
+ggsave(
+  filename = here("figs/plot_harms.png"),
+  plot = harms,
+  dpi = 300,
+  units = 'cm',
+  height = 25,
+  width = 20
+)
+
+ggsave(
+  filename = here("figs/plot_harms.pdf"),
+  plot = harms,
+  dpi = 300,
+  units = 'cm',
+  height = 25,
+  width = 20
+)
+
+```
+
+## Rating outcomes severity
+
+
+```{r, plot rating outcomes severity for amce fig,  fig.width = 25, fig.height= 8, fig.cap = "Rating outcomes severity", include=FALSE}
+
+
+
+rating_outcomes2 <-
+  df %>% dplyr::select(id, contains("outcomes_severity")) %>%
+  drop_na() %>%
+  pivot_longer (
+    names_to = "statement",
+    values_to = "rating",
+    cols = contains("outcomes_severity")
+  ) %>%
+  mutate(rating = factor(
+    rating,
+    levels = c(1, 2, 3, 4, 5),
+    labels = c(
+      "Not at all severe",
+      "Slightly severe",
+      "Somewhat severe",
+      "Very severe",
+      "Extremely severe"
+    )
+  )) %>%
+  mutate(statement = factor(
+    statement,
+    levels = c(
+      "outcomes_severity_1",
+      "outcomes_severity_2",
+      "outcomes_severity_3",
+      "outcomes_severity_4",
+      "outcomes_severity_5",
+      "outcomes_severity_6",
+      "outcomes_severity_7",
+      "outcomes_severity_8"
+    ),
+    labels = c(
+      "Medium: A nonviolent\ndemonstration",
+      "Severe: A violent\ndemonstration with casualties.",
+      "Medium: 10,000 citizens\n refused to vaccinate.",
+      "Severe: 1,000,000 people\nrefused to vaccinate --> 10,000 deaths.",
+      "Medium: Several antisemitic\n attacks, with no severe injuries.",
+      "Severe: Several antisemitic\nattacks with casualties",
+      "Medium: 1,000 people convinced\nthat climate change is a hoax.",
+      "Severe: 100,000 voters convinced\nnpreventing carbon emissions policy"
+    )
+  )) %>%
+  group_by(statement, rating, .drop = FALSE) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>%
+  group_by(statement) %>%
+  mutate(prop = n / sum(n),
+         perc = fnc_perc2(prop)) %>%
+  mutate(scenario = factor(
+    statement,
+    levels = c(
+      "Medium: A nonviolent\ndemonstration",
+      "Severe: A violent\ndemonstration with casualties.",
+      "Medium: 10,000 citizens\n refused to vaccinate.",
+      "Severe: 1,000,000 people\nrefused to vaccinate --> 10,000 deaths.",
+      "Medium: Several antisemitic\n attacks, with no severe injuries.",
+      "Severe: Several antisemitic\nattacks with casualties",
+      "Medium: 1,000 people convinced\nthat climate change is a hoax.",
+      "Severe: 100,000 voters convinced\nnpreventing carbon emissions policy"
+    ),
+    labels = c(
+      "Scenario 1: Election denial",
+      "Scenario 1: Election denial",
+      "Scenario 2: Anti-vaccination",
+      "Scenario 2: Anti-vaccination",
+      "Scenario 3: Holocaust denial",
+      "Scenario 3: Holocaust denial",
+      "Scenario 4: Climate change denial",
+      "Scenario 4: Climate change denial"
+    ),
+  ))
+
+
+plot_outcomes  <- rating_outcomes2  %>%
+    ggplot(aes(x = fct_rev(statement),
+             y = perc)) +
+  geom_col(aes(fill = rating)) +
+  geom_text(
+    aes(
+      x = statement,
+      y = perc,
+      label = perc,
+      group = rating
+    ),
+    size = 3,
+    colour = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5),
+    inherit.aes = TRUE
+  ) +
+  theme(legend.position = "bottom", legend.title = element_blank()) +
+  scale_fill_brewer(palette = "RdBu", direction = -1) +
+  coord_flip() +
+  guides(fill = guide_legend(
+    reverse = TRUE,
+    title.position = "top",
+    title.hjust = .5,
+    ncol = 3
+  )) +
+  facet_wrap( ~ scenario, scales = 'free_y', ncol = 1) +
+  labs(
+    title = "Perceived severity of outcomes in the scenarios",
+    subtitle = "Please indicate how severe, if at all, do you find the outcomes\npresented in the scenarios?",
+    y = "% of respondents",
+    x =  ""
+  )
+
+
+rating_outcomes_p <-
+  df %>% dplyr::select(id, contains("outcomes_severity"), party) %>%
+  drop_na() %>%
+  pivot_longer (
+    names_to = "statement",
+    values_to = "rating",
+    cols = contains("outcomes_severity")
+  ) %>%
+  mutate(rating = factor(
+    rating,
+    levels = c(1, 2, 3, 4, 5),
+    labels = c(
+      "Not at all severe",
+      "Slightly severe",
+      "Somewhat severe",
+      "Very severe",
+      "Extremely severe"
+    )
+  )) %>%
+  mutate(statement = factor(
+    statement,
+    levels = c(
+      "outcomes_severity_1",
+      "outcomes_severity_2",
+      "outcomes_severity_3",
+      "outcomes_severity_4",
+      "outcomes_severity_5",
+      "outcomes_severity_6",
+      "outcomes_severity_7",
+      "outcomes_severity_8"
+    ),
+    labels = c(
+      "Sc1_Medium",
+      "Sc1_Severe",
+      "Sc2_Medium",
+      "Sc2_Severe",
+      "Sc3_Medium",
+      "Sc3_Severe",
+      "Sc4_Medium",
+      "Sc4_Severe"
+    )
+  )) %>%
+  group_by(party, statement, rating, .drop = FALSE) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  group_by(party, statement) %>%
+  mutate(prop = n / sum(n),
+         perc = fnc_perc2(prop))
+
+tbl_blue <- rating_outcomes_p %>%
+  mutate(blue = ifelse(rating == "Extremely severe" |
+                         rating == "Very severe", TRUE, FALSE)) %>%
+  filter(blue == TRUE) %>%
+  group_by(statement) %>%
+  summarise(prop_blue = sum(perc)) %>%
+  arrange(desc(prop_blue))
+
+plot_outcomes_p  <- rating_outcomes_p  %>%
+  mutate(statement = ordered(statement, levels = pull(tbl_blue, statement))) %>%
+  ggplot(aes(x = fct_rev(statement),
+             y = perc)) +
+  geom_col(aes(fill = rating)) +
+  geom_text(
+    aes(
+      x = statement,
+      y = perc,
+      label = perc,
+      group = rating
+    ),
+    size = 3,
+    colour = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5),
+    inherit.aes = TRUE
+  ) +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "RdBu", direction = -1) +
+  facet_wrap( ~ party, ncol = 1) +
+  coord_flip() +
+  labs(title = "B. Perceived severity of outcomes by respondents' party affiliation", y = "% of respondents", x =
+         "")
+
+outcomes <-
+  plot_grid(
+    plot_outcomes,
+    plot_outcomes_p,
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(1, 0.8),
+    scale = c(0.95, 0.95)
+  )
+
+ggsave(
+  filename = here("figs/plot_outcomes.png"),
+  plot = plot_outcomes,
+  dpi = 300,
+  units = 'cm',
+  height = 20,
+  width = 20
+)
+
+ggsave(
+  filename = here("figs/plot_outcomes.pdf"),
+  plot = plot_outcomes,
+  dpi = 300,
+  units = 'cm',
+  height = 20,
+  width = 20
+)
+
+```
+
+```{r, plot free speech support,  fig.width = 12, fig.height= 8, fig.cap = "Free speech attitudes", echo=TRUE}
+
+
+
+freespeech_support <-
+  df %>% dplyr::select(id, contains("speech_support_pre")) %>%
+  drop_na() %>%
+  pivot_longer (
+    names_to = "measures",
+    values_to = "rating",
+    cols = contains("speech_support_pre")
+  ) %>%
+  mutate(rating = factor(
+    rating,
+    levels = c(1, 2, 3, 4, 5, 6),
+    labels = c(
+      "Strongly disagree",
+      "Moderately disagree",
+      "Slightly disagree",
+      "Slightly agree",
+      "Moderately agree",
+      "Strongly agree"
+    )
+  )) %>%
+  mutate(measures = factor(
+    measures,
+    levels = c(
+      "speech_support_pre_1",
+      "speech_support_pre_2",
+      "speech_support_pre_3",
+      "speech_support_pre_4"
+    ),
+    labels = c(
+      "Everybody should have the freedom\nto publicly say what they believe to be true.",
+      "All individuals should have the right\nto openly express their opinions,\nno matter how prejudiced they might be.",
+      "No matter how factually false a claim is,\nan individual should be able to express it publicly.",
+      "No matter how harmful a claim's potential\n consequences can be, an individual\nshould be able to express it publicly."
+    )
+  )) %>%
+  group_by(measures, rating, .drop = FALSE) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  group_by(measures) %>%
+  mutate(prop = n / sum(n),
+         perc = fnc_perc2(prop))
+
+freespeech_support_p <-
+  df %>% dplyr::select(id, contains("speech_support_pre"), party) %>%
+  drop_na() %>%
+  pivot_longer (
+    names_to = "measures",
+    values_to = "rating",
+    cols = contains("speech_support_pre")
+  ) %>%
+  mutate(rating = factor(
+    rating,
+    levels = c(1, 2, 3, 4, 5, 6),
+    labels = c(
+      "Strongly disagree",
+      "Moderately disagree",
+      "Slightly disagree",
+      "Slightly agree",
+      "Moderately agree",
+      "Strongly agree"
+    )
+  )) %>%
+  mutate(measures = factor(
+    measures,
+    levels = c(
+      "speech_support_pre_1",
+      "speech_support_pre_2",
+      "speech_support_pre_3",
+      "speech_support_pre_4"
+    ),
+    labels = c(
+      "Everybody should have the freedom\nto publicly say what they believe to be true.",
+      "... no matter how prejudiced they might be.",
+      "... no matter how factually false\na claim is",
+      "... no matter how harmful a claim's\npotential consequences can be"
+    )
+  )) %>%
+  group_by(party, measures, rating, .drop = FALSE) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  group_by(party, measures) %>%
+  mutate(prop = n / sum(n),
+         perc = fnc_perc2(prop))
+
+
+plot_fssupprt <- freespeech_support %>%
+  ggplot(aes(x = fct_rev(measures),
+             y = perc)) +
+  geom_col(aes(fill = rating)) +
+  geom_text(
+    aes(
+      x = measures,
+      y = perc,
+      label = perc,
+      group = rating
+    ),
+    size = 3.7,
+    colour = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5),
+    inherit.aes = TRUE
+  ) +
+  theme(legend.position = "bottom") +
+  scale_fill_brewer(palette = "RdBu") +
+  coord_flip() +
+  guides(fill = guide_legend(
+    reverse = TRUE,
+    title.position = "top",
+    title.hjust = .5
+  )) +
+  labs(
+    title = "A. Attitudes toward freedom of expression and its limits",
+    subtitle = "Please read the following sentences and\nindicate your agreement or disagreement.",
+    y = "% of respondents",
+    x = ""
+  )
+
+
+plot_fssupprt_p <- freespeech_support_p %>%
+  ggplot(aes(x = fct_rev(measures),
+             y = perc)) +
+  geom_col(aes(fill = rating)) +
+  geom_text(
+    aes(
+      x = measures,
+      y = perc,
+      label = perc,
+      group = rating
+    ),
+    size = 3.5,
+    colour = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5),
+    inherit.aes = TRUE
+  ) +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "RdBu") +
+  coord_flip() +
+  facet_wrap( ~ party, ncol = 1) +
+  labs(title = "B. Attitudes toward freedom of expression and its limits by respondents' party affiliation", y = "% of respondents", x = "")
+
+plot_freespeech <-
+  plot_grid(
+    plot_fssupprt,
+    plot_fssupprt_p,
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(0.8, 1)
+  )
+
+
+ggsave(
+  filename = here("figs/plot_freespeech.png"),
+  plot = plot_freespeech,
+  dpi = 300,
+  units = 'cm',
+  height = 25,
+  width = 18
+)
+
+ggsave(
+  filename = here("figs/plot_freespeech.pdf"),
+  plot = plot_freespeech,
+  dpi = 300,
+  units = 'cm',
+  height = 25,
+  width = 18
+)
+
+```
+
+```{r, plot free speech support binarized,  fig.width = 12, fig.height= 8, fig.cap = "Free speech attitudes", echo=TRUE}
+
+fig_free_palette  <- c("#8bb4fd", "#fdd38b")
+
+freespeech_support_bi <-
+  df %>% dplyr::select(id, contains("speech_support_pre")) %>%
+  drop_na() %>%
+  pivot_longer (
+    names_to = "measures",
+    values_to = "rating",
+    cols = contains("speech_support_pre")
+  ) %>%
+  mutate(rating = factor(
+    rating,
+    levels = c(1, 2, 3, 4, 5, 6),
+    labels = c("Disagree", "Disagree", "Disagree",	"Agree", "Agree", "Agree")
+  )) %>%
+  mutate(measures = factor(
+    measures,
+    levels = c(
+      "speech_support_pre_1",
+      "speech_support_pre_2",
+      "speech_support_pre_3",
+      "speech_support_pre_4"
+    ),
+    labels = c(
+      "Everybody should have the freedom\nto publicly say what they believe to be true.",
+      "All individuals should have the right\nto openly express their opinions,\nno matter how prejudiced they might be.",
+      "No matter how factually false a claim is,\nan individual should be able to express it publicly.",
+      "No matter how harmful a claim's potential\n consequences can be, an individual\nshould be able to express it publicly."
+    )
+  )) %>%
+  group_by(measures, rating, .drop = FALSE) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  group_by(measures) %>%
+  mutate(prop = n / sum(n),
+         perc = fnc_perc2(prop))
+
+
+freespeech_support_bi_x <- freespeech_support_bi %>%
+  mutate(side = ifelse(str_detect(rating, "Agree"), "left", "right"))
+
+
+
+# find numbers for right side
+freespeech_support_bi_right <- freespeech_support_bi_x %>%
+  filter(side == "right")
+
+# find numbers for left side
+freespeech_support_bi_left <- freespeech_support_bi_x %>%
+  filter(side == "left")
+
+
+plot_free_bi <- ggplot() +
+  scale_x_discrete("") +
+  scale_y_continuous("",
+                     guide = NULL) +
+  geom_bar(
+    data = freespeech_support_bi_right,
+    aes(
+      x = fct_rev(measures),
+      y = perc,
+      fill = rating
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = freespeech_support_bi_right,
+    aes(
+      x = measures,
+      y = perc,
+      label = perc,
+      group = rating
+    ),
+    size = 3.5,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_bar(
+    data = freespeech_support_bi_left,
+    aes(
+      x = fct_rev(measures),
+      y = -perc,
+      fill = rating
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = freespeech_support_bi_left,
+    aes(
+      x = measures,
+      y = -perc,
+      label = perc,
+      group = rating
+    ),
+    size = 3.5,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_hline(yintercept = 0) +
+  coord_flip() +
+  guides(fill = guide_legend(reverse = FALSE)) +
+  theme(panel.grid.major = element_blank()) +
+  theme(legend.position = "none", legend.title = element_blank()) +
+  theme(axis.text.y = element_text(face = "bold")) +
+  scale_fill_manual(values = fig_free_palette, breaks = c("Agree", "Disagree")) +
+  labs(title = "A. Attitudes toward freedom of expression and its limits (binarized rating)") +
+  labs(subtitle = "", y = "% of respondents", x =
+         "")
+plot_free_bi
+
+
+freespeech_support_pbi <-
+  df %>% dplyr::select(id, contains("speech_support_pre"), party) %>%
+  drop_na() %>%
+  pivot_longer (
+    names_to = "measures",
+    values_to = "rating",
+    cols = contains("speech_support_pre")
+  ) %>%
+  mutate(rating = factor(
+    rating,
+    levels = c(1, 2, 3, 4, 5, 6),
+    labels = c("Disagree", "Disagree", "Disagree",	"Agree", "Agree", "Agree")
+  )) %>%
+  mutate(measures = factor(
+    measures,
+    levels = c(
+      "speech_support_pre_1",
+      "speech_support_pre_2",
+      "speech_support_pre_3",
+      "speech_support_pre_4"
+    ),
+    labels = c(
+      "General support",
+      "... no matter prejudice",
+      "... no matter falseness",
+      "... no matter harms"
+    )
+  )) %>%
+  group_by(party, measures, rating, .drop = FALSE) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  group_by(party, measures) %>%
+  mutate(prop = n / sum(n),
+         perc = fnc_perc2(prop))
+
+freespeech_support_pbi_x <- freespeech_support_pbi %>%
+  mutate(side = ifelse(str_detect(rating, "Agree"), "left", "right"))
+
+
+
+# find numbers for right side
+freespeech_support_pbi_right <- freespeech_support_pbi_x %>%
+  filter(side == "right")
+
+# find numbers for left side
+freespeech_support_pbi_left <- freespeech_support_pbi_x %>%
+  filter(side == "left")
+
+
+
+plot_free_pbi <- ggplot() +
+  scale_x_discrete("") +
+  scale_y_continuous("",
+                     guide = NULL) +
+  geom_bar(
+    data = freespeech_support_pbi_right,
+    aes(x = measures,
+        y = perc,
+        fill = rating),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = freespeech_support_pbi_right,
+    aes(
+      x = measures,
+      y = perc,
+      label = perc,
+      group = rating
+    ),
+    size = 3.5,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_bar(
+    data = freespeech_support_pbi_left,
+    aes(x = measures,
+        y = -perc,
+        fill = rating),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = freespeech_support_pbi_left,
+    aes(
+      x = measures,
+      y = -perc,
+      label = perc,
+      group = rating
+    ),
+    size = 3.5,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_hline(yintercept = 0) +
+  facet_wrap( ~ party) +
+  guides(fill = guide_legend(reverse = FALSE)) +
+  theme(panel.grid.major = element_blank()) +
+  theme(legend.position = "bottom", legend.title = element_blank()) +
+  theme(axis.text.x = element_text(
+    angle = 90,
+    hjust = 1,
+    face = "bold"
+  )) +
+  scale_fill_manual(values = fig_free_palette, breaks = c("Agree", "Disagree")) +
+  labs(title = "B. Attitudes toward freedom of expression and its limits by party affiliation (binarized rating)") +
+  labs(subtitle = "", y = "% of respondents", x =
+         "")
+plot_free_pbi
+
+plot_freespeech_bi <-
+  plot_grid(
+    plot_free_bi,
+    plot_free_pbi,
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(0.6, 1),
+    scale = c(0.95, 0.95)
+  )
+
+
+ggsave(
+  filename = here("figs/plot_freespeech_bi.png"),
+  plot = plot_freespeech_bi,
+  dpi = 300,
+  units = 'cm',
+  height = 24,
+  width = 20
+)
+
+ggsave(
+  filename = here("figs/plot_freespeech_bi.pdf"),
+  plot = plot_freespeech_bi,
+  dpi = 300,
+  units = 'cm',
+  height = 24,
+  width = 20
+)
+
+```
+
+```{r}
+
+
+freespeech_support1 <-
+  df %>% dplyr::select(id, contains("speech_support_pre")) %>%
+  drop_na() %>%
+  group_by(id) %>%
+  mutate(mean_fs = mean(
+    c(
+      speech_support_pre_1,
+      speech_support_pre_2,
+      speech_support_pre_3,
+      speech_support_pre_4
+    )
+  )) %>%
+  ungroup() %>%
+  mutate(
+    attitude = case_when(
+      mean_fs > 4 ~ 'pro',
+      mean_fs <= 4  &
+        mean_fs >= 3.5 ~ 'equal',
+      mean_fs < 3.5  ~ 'against'
+    )
+  ) %>%
+  
+  
+  group_by(attitude, .drop = FALSE) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>%
+  mutate(prop = n / sum(n),
+         perc = fnc_perc2(prop))
+
+#     levels = c(1, 2, 3, 4, 5, 6),
+#   labels = c("Strongly disagree", "Moderately disagree", "Slightly disagree",	"Slightly agree", "Moderately agree", "Strongly agree")
+
+freespeech_support2 <-
+  df %>% dplyr::select(id,
+                       speech_support_pre_2,
+                       speech_support_pre_3,
+                       speech_support_pre_4) %>%
+  drop_na() %>%
+  mutate(across(
+    contains("speech_support_pre"),
+    recode,
+    "1" = 1,
+    "2" = 1,
+    "3" = 1,
+    "4" = 2,
+    "5" = 2,
+    "6" = 2
+  )) %>% # 1= diagree, 2=agree
+  group_by(id) %>%
+  mutate(mean_fs = mean(
+    c(
+      speech_support_pre_2,
+      speech_support_pre_3,
+      speech_support_pre_4
+    )
+  )) %>%
+  ungroup() %>%
+  # mutate(attitude = ifelse(mean_fs >= 1.75, "pro", ifelse(mean_fs == 1.5, "equal", "against"))) %>%
+  mutate(freespeech_attitude = ifelse(mean_fs > 1.5, "pro", "against")) %>%
+  # summarise(mean_g = mean(mean_fs))
+  
+  group_by(freespeech_attitude, .drop = FALSE) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>%
+  mutate(prop = n / sum(n),
+         perc = fnc_perc2(prop))
+
+
+
+  
+  
+```
+
+RQ5: Estimate v willingness to censor
+
+
+```{r, disinfo ECDF estimate, fig.width = 12, fig.height= 5, include = TRUE, echo = TRUE, warning = FALSE}
+
+
+estimate <- df %>% dplyr::select(disinfo_estimate, party) %>%
+  filter (disinfo_estimate < 100000000) %>%
+  drop_na()
+
+
+plot_est <- estimate %>%
+  ggplot(aes(y = disinfo_estimate, color = party)) +
+  scale_color_manual(values = c("steelblue", "#9584a4", "#d04b4b")) +
+  stat_ecdf(gsize = 2) +
+  scale_y_log10(breaks = c(0, 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000)) +
+  labs(subtitle = "Empirical Cumulative Density Function",
+       x = "Proportion of respondents", y = "Estimate") +
+  theme(legend.position = "bottom") +
+  labs(colour = "")
+plot_est
+
+
+```
+
+
+```{r}
+
+
+estimate_remove <-
+  scenarios %>% dplyr::select(id, disinfo_estimate, rating, choice) %>%
+  mutate(choice = factor(
+    choice,
+    levels = c("0", "1"),
+    labels = c("Do nothing", "Remove")
+  ))  %>%
+  mutate(rating = factor(
+    rating,
+    levels = c(4, 3, 2, 1),
+    labels = c(
+      "Indefinitely\nsuspend",
+      "Temporarily\nsuspend",
+      "Issue a warning",
+      "Do nothing"
+    )
+  )) %>%
+  filter (disinfo_estimate < 100000000) %>%
+  drop_na()
+
+
+
+er_plot1 <- estimate_remove %>%
+  ggplot(aes(
+    x = fct_rev(rating),
+    y = disinfo_estimate,
+    fill = rating
+  )) +
+  scale_y_log10(breaks = c(0, 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000)) +
+  geom_violin(trim=FALSE, fill = "grey", alpha = 0.1, scale = "count")+
+  geom_boxplot(width = .1,
+               outlier.color = NA) +
+  # geom_jitter(height = 0, width = 0.1, alpha = 0.5)+
+  # geom_violin(half( width = .6, justification = -.2)
+  # ggdist::stat_halfeye(
+  #   ## custom bandwidth
+  #   adjust = .5,
+  #   ## adjust height
+  #   width = .6,
+  #   ## move geom to the right
+  #   justification = -.2,
+  #   ## remove slab interval
+  #   .width = 0,
+  #   point_colour = NA
+  # ) +
+  # gghalves::geom_half_point(
+  #   color = "grey",
+  #   ## draw jitter on the left
+  #   side = "l",
+  #   ## control range of jitter
+  #   range_scale = .4,
+  #   ## add some transparency
+  #   alpha = .05
+  # ) +
+  coord_cartesian(xlim = c(1.2, NA), clip = "off") +
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(face = "bold")) +
+  scale_fill_manual(values = c("#e15a42", "#fb9380", "#FDDDA4", "#aabdcd")) +
+  labs(title = "C. Rating to penalize account", x = "", y = "Estimate")
+er_plot1
+
+er_plot2 <- estimate_remove %>%
+  ggplot(aes(x = choice, y = disinfo_estimate, fill = choice)) +
+  scale_y_log10(breaks = c(0, 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000)) +
+  geom_violin(trim=FALSE, fill = "grey", alpha = 0.1, scale = "count")+
+  geom_boxplot(width = .1,
+               outlier.color = NA) +
+  # ggdist::stat_halfeye(
+  #   ## custom bandwidth
+  #   adjust = .5,
+  #   ## adjust height
+  #   width = .6,
+  #   ## move geom to the right
+  #   justification = -.2,
+  #   ## remove slab interval
+  #   .width = 0,
+  #   point_colour = NA
+  # ) +
+  # gghalves::geom_half_point(
+  #   color = "grey",
+  #   ## draw jitter on the left
+  #   side = "l",
+  #   ## control range of jitter
+  #   range_scale = .4,
+  #   ## add some transparency
+  #   alpha = .05
+  # ) +
+  coord_cartesian(xlim = c(1.2, NA), clip = "off") +
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(face = "bold")) +
+  scale_fill_manual(values = c("#aabdcd", "#e15a42")) +
+  labs(title = "A. Choices to remove posts", x = "", y = "Estimate")
+er_plot2
+
+ecdf_plot1 <- estimate_remove %>%
+  ggplot(aes(y = disinfo_estimate, color = rating)) +
+  scale_y_log10(breaks = c(0, 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000)) +
+  stat_ecdf(size = 1) +
+  scale_color_manual(values = c("#e15a42", "#fb9380", "#FDDDA4", "#aabdcd")) +
+  labs(title = "D. ECDF: Rating to penalize account",  x = "Proportion of respondents", y =
+         "") +
+  theme(legend.position = "none") +
+  guides(color = guide_legend(reverse = TRUE))
+ecdf_plot1
+
+
+ecdf_plot2 <- estimate_remove %>%
+  ggplot(aes(y = disinfo_estimate, color = choice)) +
+  scale_y_log10(breaks = c(0, 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000)) +
+  stat_ecdf(size = 1) +
+  scale_color_manual(values = c("#aabdcd", "#e15a42")) +
+  labs(title = "B. ECDF: Choices to remove posts", x = "", y = "") +
+  theme(legend.position = "none")
+ecdf_plot2
+
+er_plot <-
+  plot_grid(
+    er_plot2,
+    er_plot1,
+    ncol = 1,
+    nrow = 2,
+    widths =  c(1, 0.9),
+    align = "v"
+  )
+
+
+ecdf_plot <-
+  plot_grid(
+    ecdf_plot2,
+    ecdf_plot1,
+    ncol = 1,
+    nrow = 2,
+    widths = c(1, 0.9),
+    align = "v"
+  )
+
+er_ecdf_plot <-
+  plot_grid(
+    er_plot,
+    ecdf_plot,
+    ncol = 2,
+    nrow = 1,
+   scale = c(0.98, 0.98)
+  )
+er_ecdf_plot
+
+
+ggsave(
+  filename = here("figs/er_ecdf_plot.png"),
+  plot = er_ecdf_plot,
+  dpi = 300,
+  units = 'cm',
+  height = 20,
+  width = 32
+)
+
+ggsave(
+  filename = here("figs/er_ecdf_plot.pdf"),
+  plot = er_ecdf_plot,
+  dpi = 300,
+  units = 'cm',
+  height = 20,
+  width = 32,
+ )
+                                        
+```
+
+
+
+
+
+
+

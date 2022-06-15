@@ -1,0 +1,1426 @@
+---
+title: "Prepare scenarios.RData and df.RData for analyses"
+
+---
+
+```{r setup, include=FALSE}
+
+if(!require("pacman")) install.packages("pacman"); library(pacman)
+p_load("tidyverse", "here", "readr",  "readxl", "kableExtra", 
+       "sjlabelled", "dplyr", "ggplot2", "kableExtra", "cregg", "webshot", "ggthemes", "scales", "jtools")
+
+# devtools::install_github("awhstin/awtools")
+
+source(here('code/functions.R'))
+
+options(scipen = 999)
+
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load and filter data, include=FALSE, echo=FALSE}
+
+
+
+df <- import('data/clean_df.RData')
+N2 =  length(unique(df$id))
+
+colnames(df)
+
+
+```
+
+# Prepare main df.RData with political party affiliation and freedom of expression attitudes
+## Political attitudes
+
+
+```{r, dem political}
+
+
+
+party <- df %>% dplyr::select(contains("pid")) %>%
+  mutate(pid3 = factor(
+    pid3,
+    levels = c(1, 2, 3, 4, 5),
+    labels = c("Democrat", "Republican", "Independent", "Other", "Not sure")
+  )) %>%
+  mutate(pid7_oths = factor(
+    pid7_oths,
+    levels = c(3, 5, 4, 8),
+    labels = c("Democrat", "Republican", "Neither", "Not sure")
+  )) %>%
+  mutate(pid7_dems = factor(
+    pid7_dems,
+    levels = c(1, 2),
+    labels = c("Strong", "Not Strong")
+  )) %>%
+  mutate(pid7_reps = factor(
+    pid7_reps,
+    levels = c(6, 7),
+    labels = c("Strong", "Not strong")
+  )) %>%
+  unite("party", pid3:pid7_reps, na.rm = TRUE) %>%
+  mutate(party = as.factor(party)) %>%
+  mutate(party = factor(
+    party,
+    levels = c(
+      "Democrat_Strong",
+      "Democrat_Not Strong",
+      "Not sure_Democrat",
+      "Other_Democrat",
+      "Independent_Democrat" ,
+      "Independent_Neither",
+      "Independent_Not sure",
+      "Independent_Republican",
+      "Not sure_Republican",
+      "Other_Republican",
+      "Republican_Not strong",
+      "Republican_Strong",
+      "Not sure_Neither",
+      "Not sure_Not sure",
+      "Other",
+      "Other_Neither" ,
+      "Other_Not sure"
+    ),
+    labels = c(
+      "Strong\nDemocrat",
+      "Moderate\nDemocrat",
+      "Lean\nDemocrat",
+      "Lean\nDemocrat",
+      "Lean\nDemocrat",
+      "Independent",
+      "Independent",
+      "Lean\nRepublican",
+      "Lean\nRepublican",
+      "Lean\nRepublican",
+      "Moderate\nRepublican",
+      "Strong\nRepublican",
+      "Not sure",
+      "Not sure",
+      "Not sure",
+      "Not sure",
+      "Not sure"
+    )
+  ))
+
+
+```
+
+```{r}
+
+freespeech_limits <-
+  df %>% dplyr::select(id,
+                       speech_support_pre_2,
+                       speech_support_pre_3,
+                       speech_support_pre_4) %>%
+  # drop_na() %>%
+  mutate(across(
+    contains("speech_support_pre"),
+    recode,
+    "1" = 1,
+    "2" = 1,
+    "3" = 1,
+    "4" = 2,
+    "5" = 2,
+    "6" = 2
+  )) %>% # 1= disgree, 2=agree
+  group_by(id) %>%
+  summarise(mean_fs = mean(
+    c(
+      speech_support_pre_2,
+      speech_support_pre_3,
+      speech_support_pre_4
+    )
+  )) %>%
+  ungroup() %>%
+  # mutate(attitude = ifelse(mean_fs >= 1.75, "pro", ifelse(mean_fs == 1.5, "equal", "against"))) %>%
+  mutate(freespeech_attitude = ifelse(mean_fs > 1.5, "pro_unlimited", "against_unlimited"))  %>%
+  mutate(freespeech_attitude = factor(
+    freespeech_attitude,
+    levels = c("pro_unlimited", "against_unlimited"),
+    labels = c(
+      "Pro unlimited\nfreedom of expression",
+      "Against unlimited\nfreedom of expression"
+    )
+  )) %>%
+  select(-id)
+
+```
+
+
+```{r, expand df, include= FALSE}
+
+# add political party
+#
+df <- cbind(df, party, freespeech_limits) %>%
+  mutate(party = factor(
+    party,
+    levels = c(
+      "Strong\nDemocrat",
+      "Moderate\nDemocrat",
+      "Lean\nDemocrat",
+      "Independent",
+      "Lean\nRepublican",
+      "Moderate\nRepublican",
+      "Strong\nRepublican",
+      "Not sure"
+    ),
+    labels = c(
+      "Democrat",
+      "Democrat",
+      "Democrat",
+      "Independent or not sure",
+      "Republican",
+      "Republican",
+      "Republican",
+      "Independent or not sure"
+    )
+  ))  %>%
+  mutate(ideology = factor(
+    ideo5,
+    ordered = FALSE,
+    levels = c(1, 2, 3, 4, 5, 6),
+    labels = c(
+      "Liberal",
+      "Liberal",
+      "Moderate or not sure",
+      "Conservative",
+      "Conservative",
+      "Moderate or not sure"
+    )
+  ))
+# write.csv(df, here("data/main_df.csv"))
+
+save(df, file = "data/df.RData")
+
+```
+
+
+
+# Prepare scenarios.Rdata
+
+
+
+```{r}
+# prepare non-conjoint variables that will go to the scenarios df
+
+df1 <- df %>%
+  # transfrom 5-point Likert into 3-points scale
+  mutate(across(
+    contains("disinfo_beliefs"),
+    #	1Definitely false	Probably false	Do not know	Probably true	Definitely true5
+    recode,
+    "1" = 1,
+    "2" = 1,
+    "3" = 2,
+    "4" = 0,
+    "5" = 0
+  )) %>%
+  mutate(election_was_stolen = factor(
+    disinfo_beliefs_1,
+    ordered = FALSE,
+    levels = c(1, 2, 0),
+    labels = c("False", "Do not know", "True")
+  )) %>%
+  mutate(holocaust_is_fact = factor(
+    disinfo_beliefs_2,
+    ordered = FALSE,
+    levels = c(1, 2, 0),
+    labels = c("False", "Do not know", "True")
+  )) %>% mutate(
+    vaccines_cause_infertility = factor(
+      disinfo_beliefs_3,
+      ordered = FALSE,
+      levels = c(1, 2, 0),
+      labels = c("False", "Do not know", "True")
+    )
+  ) %>% mutate(climate_change_true = factor(
+    disinfo_beliefs_4,
+    ordered = FALSE,
+    levels = c(1, 2, 0),
+    labels = c("False", "Do not know", "True")
+  )) %>%
+    mutate(gender = factor(
+    gender,
+    levels = c(1, 2, 3, 4),
+    ordered = FALSE,
+    labels = c("Male", "Female", "Other", "Other")
+  )) %>%
+  mutate(speech_disinfo_pre = factor(
+    speech_disinfo_pre,
+    ordered = FALSE,
+    levels = c("1", "2"),
+    labels = c("Pro freedom of expression", "Pro preventing misinformation")
+  )) %>%
+  mutate(platform_pre = factor(
+    platform_pre,
+    ordered = FALSE,
+    levels = c("1", "2"),
+    labels = c(
+      "Platform A\n(free speech priority)",
+      "Platform B\n(strict content moderation)"
+    )
+  )) %>%
+  mutate(agegroup = case_when(age >= 18  & age <= 30 ~ '1',
+                              age >= 31  &
+                                age <= 50 ~ '2',
+                              age >= 50  ~ '3')) %>%
+  mutate(agegroup = factor(
+    agegroup,
+    ordered = FALSE,
+    levels = c(1, 2, 3),
+    labels = c("Age (18-30)", "Age (31-50)", "Age (50+)")
+  )) %>%
+  mutate(education = factor(
+    education,
+    ordered = FALSE,
+    levels = c(1, 2, 3, 4, 5, 6, 7, 8),
+    labels = c(
+      "No college degree",
+      "No college degree",
+      "No college degree",
+      "BA or Associate",
+      "BA or Associate",
+      "Postgrad",
+      "Postgrad",
+      "Postgrad"
+    )
+  )) %>%
+  mutate(ethnicity = factor(
+    ethnicity,
+    ordered = FALSE,
+    levels = c(1, 2, 3, 4, 5, 6, 7),
+    labels = c(
+      "White",
+      "Black or African-American",
+      "Hispanic or Latino",
+      "Asian or Asian-American",
+      "Other",
+      "Asian or Asian-American",
+      "Other"
+    )
+  )) %>%
+  mutate(
+    estimategroup = case_when(
+      disinfo_estimate >= 0  & disinfo_estimate <= 100 ~ '1',
+      disinfo_estimate >= 101  &
+        disinfo_estimate <= 1000 ~ '2',
+      disinfo_estimate >= 1001 &
+        disinfo_estimate <= 100000  ~ '3',
+      disinfo_estimate >= 100001  ~ '4'
+    )
+  ) %>%
+  mutate(estimategroup = factor(
+    estimategroup,
+    levels = c(1, 2, 3, 4),
+    labels = c(
+      "Estimate (0-100)",
+      "Estimate (101-1k)",
+      "Estimate (1k-100k)",
+      "Estimate (more than 100k)"
+    )
+  ))
+  
+```
+
+
+**Scenario 1 (election denial)**
+
+Action "...published a series of posts denying the outcome of the presidential election, encouraging people to join a protest rally and praising violent supporters."
+
+```{r, scenario 1, include = FALSE}
+
+scenario1a <- df1 %>%
+  dplyr::select(
+    id,
+    choice_1a,
+    rating_1a_1,
+    traits1a,
+    party,
+    gender,
+    election_was_stolen,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    disinfo_estimate,
+    age,
+    freespeech_attitude
+  ) %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits1a,
+               names_to = c("traits"),
+               values_to = "scenario1a") %>%
+  mutate(scenario1a = str_split(scenario1a, "\\|", n = 7)) %>%
+  unnest(scenario1a) %>%
+  mutate(row = row_number()) %>%
+  add_column(level = "level") %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario1a") %>%
+  # drop_na() %>%
+  rename (choice = choice_1a,
+          rating = rating_1a_1)
+
+
+
+scenario1b <- df1 %>%
+  dplyr::select(
+    id,
+    choice_1b,
+    rating_1b_1,
+    traits1b,
+    party,
+    gender,
+    election_was_stolen,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    disinfo_estimate,
+    age,
+    freespeech_attitude
+  ) %>%
+  # drop_na() %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits1b,
+               names_to = c("traits"),
+               values_to = "scenario1b") %>%
+  mutate(scenario1b = str_split(scenario1b, "\\|", n = 7)) %>%
+  unnest(scenario1b) %>%
+  add_column(level = "level") %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario1b") %>%
+  rename (choice = choice_1b,
+          rating = rating_1b_1)
+
+
+scenario1c <- df1 %>%
+  dplyr::select(
+    id,
+    choice_1c,
+    rating_1c_1,
+    traits1c,
+    party,
+    gender,
+    election_was_stolen,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    disinfo_estimate,
+    age,
+    freespeech_attitude
+  ) %>%
+  # drop_na() %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits1c,
+               names_to = c("traits"),
+               values_to = "scenario1c") %>%
+  mutate(scenario1c = str_split(scenario1c, "\\|", n = 7)) %>%
+  unnest(scenario1c) %>%
+  add_column(level = "level") %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario1c") %>%
+  rename (choice = choice_1c,
+          rating = rating_1c_1)
+
+
+scenario1d <- df1 %>%
+  dplyr::select(
+    id,
+    choice_1d,
+    rating_1d_1,
+    traits1d,
+    party,
+    gender,
+    election_was_stolen,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    disinfo_estimate,
+    age,
+    freespeech_attitude
+  ) %>%
+  # drop_na() %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits1d,
+               names_to = c("traits"),
+               values_to = "scenario1d") %>%
+  mutate(scenario1d = str_split(scenario1d, "\\|", n = 7)) %>%
+  unnest(scenario1d) %>%
+  add_column(level = "level") %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario1d") %>%
+  rename (choice = choice_1d,
+          rating = rating_1d_1)
+
+# levels(scenario_1$level_7)
+
+scenario_1 <-
+  rbind(scenario1a, scenario1b, scenario1c, scenario1d) %>%
+  mutate(
+    level_1 = as.factor(level_1),
+    level_2 = as.factor(level_2),
+    level_3 = as.factor(level_3),
+    level_4 = as.factor(level_4),
+    level_5 = as.factor(level_5),
+    level_6 = as.factor(level_6),
+    level_7 = as.factor(level_7)
+  ) %>%
+  mutate(scenario = "1_election") %>%
+  mutate(level_1 = factor(
+    level_1,
+    levels = c(
+      "<b>A private citizen</b>",
+      "<b>A celebrity</b>",
+      "<b>A political activist</b>",
+      "<b>A presidential candidate</b>"
+    ),
+    labels = c(
+      "A private citizen",
+      "A celebrity",
+      "A political activist",
+      "A politician\n(s1:presidential candidate)"
+    )
+  )) %>%
+  mutate(level_2 = factor(
+    level_2,
+    levels = c(
+      "who is <b>an Independent</b>",
+      "who is a <b>Democrat</b>",
+      "who is a <b> Republican</b>"
+    ),
+    labels = c("Independent", "Democrat",  "Republican")
+  )) %>%
+  mutate(level_3 = factor(
+    level_3,
+    levels = c(
+      "with <b>less than 100,000</b> followers on a popular social media platform,",
+      "with <b>about 500,000</b> followers on a popular social media platform," ,
+      "with <b>more than 1 million</b> followers on a popular social media platform,"
+    ),
+    labels = c(
+      "less than 100,000 followers",
+      "about 500,000 followers",
+      "more than 1 million followers"
+    )
+  )) %>%
+  mutate(level_4 = factor(
+    level_4,
+    levels = c(
+      "<b><i>published a series of posts denying the outcome of the presidential election, encouraging people to join a protest rally and praising violent supporters.</i></b>"
+    ),
+    labels = c("Scenario 1: Election denial")
+  )) %>%
+  mutate(level_5 = factor(
+    level_5,
+    levels = c(
+      "The specific information they shared is<b> misleading and distorts the established facts.</b>",
+      "The specific information they shared is <b>completely false and negates the established facts.</b>"
+    ),
+    labels = c("Information: misleading",
+               "Information: completely false")
+  )) %>%
+  mutate(level_6 = factor(
+    level_6,
+    levels = c(
+      "This was <b>the first time</b> they shared false or misleading information.",
+      "This was <b>not the first time</b> they shared false or misleading information."
+    ),
+    labels = c("Pattern: first time",
+               "Pattern: not the first time")
+  )) %>%
+  mutate(level_7 = factor(
+    level_7,
+    levels = c(
+      "Suppose you know that these messages <b>caused no consequences</b>.",
+      " Suppose you know that, due to this, <b>a nonviolent demonstration occurred</b>.",
+      "Suppose you know that, due to this, <b>a violent demonstration occurred, 5 people died, and 150 protesters were detained</b>."
+    ),
+    labels = c(
+      "No consequences",
+      "Consequences_medium",
+      "Consequences_severe"
+    )
+  )) %>%
+  # drop_na()%>%
+  mutate(choice = as.numeric(choice),
+         rating = as.numeric(rating))
+
+```
+
+
+```{r, fig.width = 12, fig.height= 8,  fig.cap = "Display frequencies of conjoint features", include=FALSE}
+
+cj_freqs(scenario_1, rating ~ level_1 + level_2 + level_3 + level_4 + level_5 + level_6 + level_7)
+```
+
+**Scenario 2 (Anti-vaccination)**
+
+Action "...published a series of posts about serious side effects of the approved COVID-19 vaccines (e.g., that vaccines cause infertility)."
+
+```{r, scenario 2, include = FALSE}
+
+scenario2a <- df1 %>%
+  dplyr::select(
+    id,
+    choice_2a,
+    rating_2a_1,
+    traits2a,
+    party,
+    gender,
+    vaccines_cause_infertility,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    freespeech_attitude
+  ) %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits2a,
+               names_to = c("traits"),
+               values_to = "scenario2a") %>%
+  mutate(scenario2a = str_split(scenario2a, "\\|", n = 7)) %>%
+  unnest(scenario2a) %>%
+  
+  mutate(row = row_number()) %>%
+  add_column(level = "level") %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario2a") %>%
+  # drop_na() %>%
+  rename (choice = choice_2a,
+          rating = rating_2a_1)
+
+
+
+scenario2b <- df1 %>%
+  dplyr::select(
+    id,
+    choice_2b,
+    rating_2b_1,
+    traits2b,
+    party,
+    gender,
+    vaccines_cause_infertility,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    freespeech_attitude
+  ) %>%
+  # drop_na() %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits2b,
+               names_to = c("traits"),
+               values_to = "scenario2b") %>%
+  mutate(scenario2b = str_split(scenario2b, "\\|", n = 7)) %>%
+  unnest(scenario2b) %>%
+  add_column(level = "level") %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario2b") %>%
+  rename (choice = choice_2b,
+          rating = rating_2b_1)
+
+
+scenario2c <- df1 %>%
+  dplyr::select(
+    id,
+    choice_2c,
+    rating_2c_1,
+    traits2c,
+    party,
+    gender,
+    vaccines_cause_infertility,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    freespeech_attitude
+  ) %>%
+  # drop_na() %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits2c,
+               names_to = c("traits"),
+               values_to = "scenario2c") %>%
+  mutate(scenario2c = str_split(scenario2c, "\\|", n = 7)) %>%
+  unnest(scenario2c) %>%
+  add_column(level = "level") %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario2c") %>%
+  rename (choice = choice_2c,
+          rating = rating_2c_1)
+
+
+scenario2d <- df1 %>%
+  dplyr::select(
+    id,
+    choice_2d,
+    rating_2d_1,
+    traits2d,
+    party,
+    gender,
+    vaccines_cause_infertility,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    freespeech_attitude
+  ) %>%
+  # drop_na() %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits2d,
+               names_to = c("traits"),
+               values_to = "scenario2d") %>%
+  mutate(scenario2d = str_split(scenario2d, "\\|", n = 7)) %>%
+  unnest(scenario2d) %>%
+  add_column(level = "level") %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario2d") %>%
+  rename (choice = choice_2d,
+          rating = rating_2d_1)
+
+# levels(scenario_2$level_7)
+
+scenario_2 <-
+  rbind(scenario2a, scenario2b, scenario2c, scenario2d) %>%
+  mutate(
+    level_1 = as.factor(level_1),
+    level_2 = as.factor(level_2),
+    level_3 = as.factor(level_3),
+    level_4 = as.factor(level_4),
+    level_5 = as.factor(level_5),
+    level_6 = as.factor(level_6),
+    level_7 = as.factor(level_7)
+  ) %>%
+  mutate(scenario = "2_antivaxx") %>%
+  mutate(level_1 = factor(
+    level_1,
+    levels = c(
+      "<b>A private citizen</b>",
+      "<b>A celebrity</b>",
+      "<b>A political activist</b>",
+      "<b>An elected politician</b>"
+    ),
+    labels = c(
+      "A private citizen",
+      "A celebrity",
+      "A political activist",
+      "An elected politician"
+    )
+  )) %>%
+  mutate(level_2 = factor(
+    level_2,
+    levels = c(
+      "who is <b>an Independent</b>",
+      "who is a <b>Democrat</b>",
+      "who is a <b> Republican</b>"
+    ),
+    labels = c("Independent", "Democrat",  "Republican")
+  )) %>%
+  mutate(level_3 = factor(
+    level_3,
+    levels = c(
+      "with <b>less than 100,000</b> followers on a popular social media platform,",
+      "with <b>about 500,000</b> followers on a popular social media platform," ,
+      "with <b>more than 1 million</b> followers on a popular social media platform,"
+    ),
+    labels = c(
+      "less than 100,000 followers",
+      "about 500,000 followers",
+      "more than 1 million followers"
+    )
+  )) %>%
+  mutate(level_4 = factor(
+    level_4,
+    levels = c(
+      "<b><i>published a series of posts about serious side effects of the approved COVID-19 vaccines (e.g., that vaccines cause infertility).</i></b>"
+    ),
+    labels = c("Scenario 2: Anti-vaccination")
+  )) %>%
+  mutate(level_5 = factor(
+    level_5,
+    levels = c(
+      "The specific information they shared is <b>misleading and distorts the established facts</b>.",
+      "The specific information they shared is<b> misleading and distorts the established facts.</b>",
+      "The specific information they shared is <b>completely false and negates the established facts</b>.",
+      "The specific information they shared is <b>completely false and negates the established facts.</b>"
+    ) ,
+    labels = c(
+      "Information: misleading",
+      "Information: misleading",
+      "Information: completely false",
+      "Information: completely false"
+    )
+  )) %>%
+  mutate(level_6 = factor(
+    level_6,
+    levels = c(
+      "This was <b>the first time</b> they shared false or misleading information.",
+      "This was <b>not the first time</b> they shared false or misleading information."
+    ),
+    labels = c("Pattern: first time",
+               "Pattern: not the first time")
+  )) %>%
+  mutate(level_7 = factor(
+    level_7,
+    levels = c(
+      "Suppose you know that these messages <b>caused no consequences</b>.",
+      " Suppose you know that, due to this, <b>10,000 citizens who were planning to get a vaccine refused to vaccinate.</b>",
+      "Suppose you know that, due to this, <b>1 million people who were planning to get a vaccine refused to vaccinate, resulting in approximately 10,000 additional deaths.</b>"
+    ),
+    labels = c(
+      "No consequences",
+      "Consequences_medium",
+      "Consequences_severe"
+    )
+  )) %>%
+  # drop_na() %>%
+  mutate(choice = as.numeric(choice),
+         rating = as.numeric(rating))
+
+```
+
+```{r, fig.width = 12, fig.height= 8,  fig.cap = "Display frequencies of conjoint features", include=FALSE}
+
+plot(cj_freqs(scenario_2, rating ~ level_1 + level_2 + level_3 + level_4 + level_5 + level_6 + level_7)) 
+```
+
+
+**Scenario 3 (Holocaust denial)**
+
+Action "...published a series of posts questioning the scale of the Holocaust (e.g., that significantly fewer than 6 million Jews were killed).."
+
+```{r, scenario 3, include = FALSE}
+
+scenario3a <- df1 %>%
+  dplyr::select(
+    id,
+    choice_3a,
+    rating_3a_1,
+    traits3a,
+    party,
+    gender,
+    holocaust_is_fact,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    freespeech_attitude
+  ) %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits3a,
+               names_to = c("traits"),
+               values_to = "scenario3a") %>%
+  mutate(scenario3a = str_split(scenario3a, "\\|", n = 7)) %>%
+  unnest(scenario3a) %>%
+  mutate(row = row_number()) %>%
+  add_column(level = "level") %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario3a") %>%
+  # drop_na() %>%
+  rename (choice = choice_3a,
+          rating = rating_3a_1)
+
+
+
+scenario3b <- df1 %>%
+  dplyr::select(
+    id,
+    choice_3b,
+    rating_3b_1,
+    traits3b,
+    party,
+    gender,
+    holocaust_is_fact,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    freespeech_attitude
+  ) %>%
+  # drop_na() %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits3b,
+               names_to = c("traits"),
+               values_to = "scenario3b") %>%
+  mutate(scenario3b = str_split(scenario3b, "\\|", n = 7)) %>%
+  unnest(scenario3b) %>%
+  add_column(level = "level") %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario3b") %>%
+  rename (choice = choice_3b,
+          rating = rating_3b_1)
+
+
+scenario3c <- df1 %>%
+  dplyr::select(
+    id,
+    choice_3c,
+    rating_3c_1,
+    traits3c,
+    party,
+    gender,
+    holocaust_is_fact,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    freespeech_attitude
+  ) %>%
+  # drop_na() %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits3c,
+               names_to = c("traits"),
+               values_to = "scenario3c") %>%
+  mutate(scenario3c = str_split(scenario3c, "\\|", n = 7)) %>%
+  unnest(scenario3c) %>%
+  add_column(level = "level") %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario3c") %>%
+  rename (choice = choice_3c,
+          rating = rating_3c_1)
+
+
+scenario3d <- df1 %>%
+  dplyr::select(
+    id,
+    choice_3d,
+    rating_3d_1,
+    traits3d,
+    party,
+    gender,
+    holocaust_is_fact,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    freespeech_attitude
+  ) %>%
+  # drop_na() %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits3d,
+               names_to = c("traits"),
+               values_to = "scenario3d") %>%
+  mutate(scenario3d = str_split(scenario3d, "\\|", n = 7)) %>%
+  unnest(scenario3d) %>%
+  add_column(level = "level") %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario3d") %>%
+  rename (choice = choice_3d,
+          rating = rating_3d_1)
+
+# levels(scenario_3$level_7)
+
+scenario_3 <-
+  rbind(scenario3a, scenario3b, scenario3c, scenario3d) %>%
+  mutate(
+    level_1 = as.factor(level_1),
+    level_2 = as.factor(level_2),
+    level_3 = as.factor(level_3),
+    level_4 = as.factor(level_4),
+    level_5 = as.factor(level_5),
+    level_6 = as.factor(level_6),
+    level_7 = as.factor(level_7)
+  ) %>%
+  mutate(scenario = "3_holocaust") %>%
+  mutate(level_1 = factor(
+    level_1,
+    levels = c(
+      "<b>A private citizen</b>",
+      "<b>A celebrity</b>",
+      "<b>A political activist</b>",
+      "<b>An elected politician</b>"
+    ),
+    labels = c(
+      "A private citizen",
+      "A celebrity",
+      "A political activist",
+      "An elected politician"
+    )
+  )) %>%
+  mutate(level_2 = factor(
+    level_2,
+    levels = c(
+      "who is <b>an Independent</b>",
+      "who is a <b>Democrat</b>",
+      "who is a <b> Republican</b>"
+    ),
+    labels = c("Independent", "Democrat",  "Republican")
+  )) %>%
+  mutate(level_3 = factor(
+    level_3,
+    levels = c(
+      "with <b>less than 100,000</b> followers on a popular social media platform,",
+      "with <b>about 500,000</b> followers on a popular social media platform,",
+      "with <b>more than 1 million</b> followers on a popular social media platform,"
+    ),
+    labels = c(
+      "less than 100,000 followers",
+      "about 500,000 followers",
+      "more than 1 million followers"
+    )
+  )) %>%
+  mutate(level_4 = factor(
+    level_4,
+    levels = c(
+      "<b><i>published a series of posts questioning the scale of the Holocaust (e.g., that significantly fewer than 6 million Jews were killed).</i></b>"
+    ),
+    labels = c("Scenario 3: Holocaust denial")
+  )) %>%
+  mutate(level_5 = factor(
+    level_5,
+    levels = c(
+      "The specific information they shared is <b>misleading and distorts the established facts</b>.",
+      "The specific information they shared is<b> misleading and distorts the established facts.</b>",
+      "The specific information they shared is <b>completely false and negates the established facts</b>.",
+      "The specific information they shared is <b>completely false and negates the established facts.</b>"
+    ) ,
+    labels = c(
+      "Information: misleading",
+      "Information: misleading",
+      "Information: completely false",
+      "Information: completely false"
+    )
+  )) %>%
+  mutate(level_6 = factor(
+    level_6,
+    levels = c(
+      "This was <b>the first time</b> they shared false or misleading information.",
+      "This was <b>not the first time</b> they shared false or misleading information."
+    ),
+    labels = c("Pattern: first time",
+               "Pattern: not the first time")
+  )) %>%
+  mutate(level_7 = factor(
+    level_7,
+    levels = c(
+      "Suppose you know that these messages <b>caused no consequences</b>.",
+      " Suppose you know that, due to this, <b>several antisemitic attacks occurred, with no severe injuries</b>.",
+      "Suppose you know that, due to this, <b>several antisemitic attacks occurred, injuring 2 people and killing 1 person</b>."
+    ),
+    labels = c(
+      "No consequences",
+      "Consequences_medium",
+      "Consequences_severe"
+    )
+  )) %>%
+  # drop_na() %>%
+  mutate(choice = as.numeric(choice),
+         rating = as.numeric(rating))
+
+
+
+```
+
+
+```{r, fig.width = 12, fig.height= 8,  fig.cap = "Display frequencies of conjoint features", include=FALSE}
+
+plot(cj_freqs(scenario_3, rating ~ level_1 + level_2 + level_3 + level_4 + level_5 + level_6 + level_7)) 
+```
+
+
+**Scenario 4 (Climate change denial)**
+
+Action "...published a series of posts denying scientific consensus that human activity (e.g., burning fossil fuels) is the leading cause of climate change."
+
+```{r, scenario 4, include = FALSE}
+
+scenario4a <- df1 %>%
+  dplyr::select(
+    id,
+    choice_4a,
+    rating_4a_1,
+    traits4a,
+    party,
+    gender,
+    climate_change_true,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    freespeech_attitude
+  ) %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits4a,
+               names_to = c("traits"),
+               values_to = "scenario4a") %>%
+  mutate(scenario4a = str_split(scenario4a, "\\|", n = 7)) %>%
+  unnest(scenario4a) %>%
+  mutate(row = row_number()) %>%
+  add_column(level = "level") %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario4a") %>%
+  # drop_na() %>%
+  rename (choice = choice_4a,
+          rating = rating_4a_1)
+
+
+
+scenario4b <- df1 %>%
+  dplyr::select(
+    id,
+    choice_4b,
+    rating_4b_1,
+    traits4b,
+    party,
+    gender,
+    climate_change_true,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    freespeech_attitude
+  ) %>%
+  # drop_na() %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits4b,
+               names_to = c("traits"),
+               values_to = "scenario4b") %>%
+  mutate(scenario4b = str_split(scenario4b, "\\|", n = 7)) %>%
+  unnest(scenario4b) %>%
+  add_column(level = "level") %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario4b") %>%
+  rename (choice = choice_4b,
+          rating = rating_4b_1)
+
+
+scenario4c <- df1 %>%
+  dplyr::select(
+    id,
+    choice_4c,
+    rating_4c_1,
+    traits4c,
+    party,
+    gender,
+    climate_change_true,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    freespeech_attitude
+  ) %>%
+  # drop_na() %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits4c,
+               names_to = c("traits"),
+               values_to = "scenario4c") %>%
+  mutate(scenario4c = str_split(scenario4c, "\\|", n = 7)) %>%
+  unnest(scenario4c) %>%
+  add_column(level = "level") %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario4c") %>%
+  rename (choice = choice_4c,
+          rating = rating_4c_1)
+
+
+scenario4d <- df1 %>%
+  dplyr::select(
+    id,
+    choice_4d,
+    rating_4d_1,
+    traits4d,
+    party,
+    gender,
+    climate_change_true,
+    speech_disinfo_pre,
+    platform_pre,
+    ethnicity,
+    education,
+    agegroup,
+    ideology,
+    estimategroup,
+    freespeech_attitude
+  ) %>%
+  # drop_na() %>%
+  group_by(id) %>%
+  pivot_longer(cols = traits4d,
+               names_to = c("traits"),
+               values_to = "scenario4d") %>%
+  mutate(scenario4d = str_split(scenario4d, "\\|", n = 7)) %>%
+  unnest(scenario4d) %>%
+  add_column(level = "level") %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = c("level", "row"),
+              values_from = "scenario4d") %>%
+  rename (choice = choice_4d,
+          rating = rating_4d_1)
+
+
+# levels(scenario_4$level_7)
+
+scenario_4 <-
+  rbind(scenario4a, scenario4b, scenario4c, scenario4d) %>%
+  mutate(
+    level_1 = as.factor(level_1),
+    level_2 = as.factor(level_2),
+    level_3 = as.factor(level_3),
+    level_4 = as.factor(level_4),
+    level_5 = as.factor(level_5),
+    level_6 = as.factor(level_6),
+    level_7 = as.factor(level_7)
+  ) %>%
+  mutate(scenario = "4_climate") %>%
+  mutate(level_1 = factor(
+    level_1,
+    levels = c(
+      "<b>A private citizen</b>",
+      "<b>A celebrity</b>",
+      "<b>A political activist</b>",
+      "<b>An elected politician</b>"
+    ),
+    labels = c(
+      "A private citizen",
+      "A celebrity",
+      "A political activist",
+      "An elected politician"
+    )
+  )) %>%
+  mutate(level_2 = factor(
+    level_2,
+    levels = c(
+      "who is <b>an Independent</b>",
+      "who is a <b>Democrat</b>",
+      "who is a <b> Republican</b>"
+    ),
+    labels = c("Independent", "Democrat",  "Republican")
+  )) %>%
+  mutate(level_3 = factor(
+    level_3,
+    levels = c(
+      "with <b>less than 100,000 followers</b> on a popular social media platform,",
+      "with <b>less than 100,000</b> followers on a popular social media platform,",
+      "with <b>about 500,000 followers</b> on a popular social media platform,",
+      "with <b>about 500,000</b> followers on a popular social media platform,",
+      "with <b>more than 1 million followers</b> on a popular social media platform,",
+      "with <b>more than 1 million</b> followers on a popular social media platform,"
+    ),
+    labels = c(
+      "less than 100,000 followers",
+      "less than 100,000 followers",
+      "about 500,000 followers",
+      "about 500,000 followers",
+      "more than 1 million followers",
+      "more than 1 million followers"
+    )
+  )) %>%
+  mutate(level_4 = factor(
+    level_4,
+    levels = c(
+      "<b><i>published a series of posts denying scientific consensus that human activity (e.g., burning fossil fuels) is the leading cause of climate change.</i></b>"
+    ),
+    labels = c("Scenario 4: Climate change denial")
+  )) %>%
+  mutate(level_5 = factor(
+    level_5,
+    levels = c(
+      "The specific information they shared is <b>misleading and distorts the established facts</b>.",
+      "The specific information they shared is<b> misleading and distorts the established facts.</b>",
+      "The specific information they shared is <b>completely false and negates the established facts</b>.",
+      "The specific information they shared is <b>completely false and negates the established facts.</b>"
+    ) ,
+    labels = c(
+      "Information: misleading",
+      "Information: misleading",
+      "Information: completely false",
+      "Information: completely false"
+    )
+  )) %>%
+  mutate(level_6 = factor(
+    level_6,
+    levels = c(
+      "This was <b>the first time</b> they shared false or misleading information.",
+      "This was <b>not the first time</b> they shared false or misleading information."
+    ),
+    labels = c("Pattern: first time",
+               "Pattern: not the first time")
+  )) %>%
+  mutate(level_7 = factor(
+    level_7,
+    levels = c(
+      "Suppose you know that these messages <b>caused no consequences</b>.",
+      "Suppose you know that these posts <b>convinced 1,000 people that climate change is a hoax</b>.",
+      "Suppose you know that these posts <b>convinced 100,000 voters that climate change is a hoax, thereby swinging the outcome of the next election and preventing the passage of a bill that would have cut carbon emissions by 20%</b>."
+    ),
+    labels = c(
+      "No consequences",
+      "Consequences_medium",
+      "Consequences_severe"
+    )
+  )) %>%
+  # drop_na() %>%
+  mutate(choice = as.numeric(choice),
+         rating = as.numeric(rating))
+
+```
+
+```{r, fig.width = 12, fig.height= 8,  fig.cap = "Display frequencies of conjoint features", include=FALSE}
+
+plot(cj_freqs(scenario_4, rating ~ level_1 + level_2 + level_3 + level_4 + level_5 + level_6 + level_7)) 
+```
+
+```{r}
+save(scenario_1,file = "data/scenario_1.RData")
+save(scenario_2,file = "data/scenario_2.RData")
+save(scenario_3,file = "data/scenario_3.RData")
+save(scenario_4,file = "data/scenario_4.RData")
+```
+
+
+
+```{r}
+
+scenarios <-
+  rbind(scenario_1, scenario_2, scenario_3, scenario_4) %>%
+  mutate(level_4 = factor(
+    level_4,
+    levels = c(
+      "Scenario 4: Climate change denial",
+      "Scenario 3: Holocaust denial",
+      "Scenario 2: Anti-vaccination",
+      "Scenario 1: Election denial"
+    ),
+    labels = c(
+      "Climate change denial",
+      "Holocaust denial",
+      "Anti-vaccination",
+      "Election denial"
+    )
+  )) %>%
+  mutate(scenario = factor(
+    scenario,
+    levels = c("1_election", "2_antivaxx",  "3_holocaust", "4_climate"),
+    labels = c(
+      "Scenario 1: Election denial",
+      "Scenario 2: Anti-vaccination",
+      "Scenario 3: Holocaust denial",
+      "Scenario 4: Climate change denial"
+    )
+  )) %>%
+  mutate(level_1 = factor(
+    level_1,
+    levels = c(
+      "A private citizen",
+      "A celebrity" ,
+      "A political activist",
+      "A politician\n(s1:presidential candidate)",
+      "An elected politician"
+    ),
+    labels = c(
+      "Private citizen",
+      "Celebrity" ,
+      "Political activist",
+      "Politician",
+      "Politician"
+    )
+  )) %>%
+  mutate(party = factor(
+    party,
+    levels = c("Democrat", "Independent or not sure", "Republican"),
+    labels = c("Democrat",  "Independent" ,  "Republican")
+  )) %>%
+  mutate(level_7 = factor(
+    level_7,
+    levels = c(
+      "No consequences",
+      "Consequences_medium",
+      "Consequences_severe"
+    ),
+    labels = c("None", "Medium",  "Severe")
+  )) %>%
+  mutate(level_6 = factor(
+    level_6,
+    levels = c("Pattern: first time", "Pattern: not the first time"),
+    labels = c("First time", "Repeated")
+  )) %>%
+  mutate(level_5 = factor(
+    level_5,
+    levels = c("Information: misleading",  "Information: completely false"),
+    labels = c("Misleading",  "Completely false")
+  )) %>%
+  mutate(level_3 = factor(
+    level_3,
+    levels = c(
+      "less than 100,000 followers",
+      "about 500,000 followers",
+      "more than 1 million followers"
+    ),
+    labels = c("< 100,000",
+               "~ 500,000",
+               "> 1,000,000")
+  )) %>%
+  select(-traits) %>%
+  mutate (rating_rescaled = rescale(rating)) %>%
+  drop_na(contains("level"))
+
+
+
+
+# write.csv(scenarios, here("data/scenarios.csv"))
+save(scenarios, file = "data/scenarios.RData")
+
+```
+
+
+
+
+
+
