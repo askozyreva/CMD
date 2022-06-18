@@ -1199,7 +1199,7 @@ mm_party_choice <- plot(mm_party_ch, size = 3, group = "party") +
 amces_party_choice <-
   plot(amce_party_ch, size = 3, group = "party")  +
   scale_x_continuous(breaks = seq(from = -0.04, to = 0.14, by = 0.04),
-                     limits = c(-0.05, 0.15)) +
+                     limits = c(-0.05, 0.16)) +
   geom_vline(xintercept = 0,
              # size = .8,
              color = "black",
