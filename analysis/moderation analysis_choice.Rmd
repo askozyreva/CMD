@@ -1,0 +1,1010 @@
+---
+title: "subset_analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+if(!require("pacman")) install.packages("pacman"); library(pacman)
+p_load("tidyverse", "here", "readr",  "workflowr",
+          "readxl", "jtools", "broom", "kableExtra", "knitr",
+          "sjlabelled", "dplyr", "janitor", "ggplot2", "lme4", "broom.mixed", "ggthemes", "cowplot")
+
+# devtools::install_github("awhstin/awtools")
+
+source(here('code/functions.R'))
+
+options(scipen = 999)
+
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load and filter data, include=FALSE, echo=FALSE}
+
+
+scenarios <- import(here('data/scenarios.RData'))
+
+
+```
+
+```{r theming, cache = FALSE}
+
+theme_update(
+  panel.spacing = unit(10, "pt"),
+  legend.position = "bottom",
+  legend.title = element_blank(),
+  legend.justification = 0.5,
+  legend.text = element_text(size = 6),
+  strip.text = element_text(size = 6, face = "bold"),
+  plot.title = element_text(size = 10, face = "bold"),
+  plot.title.position = "plot",
+  axis.text.y = element_text(size = 7, face = "bold"),
+  axis.text.x = element_text(size = 6),
+  axis.title.x = element_text(size = 7),
+  axis.title.y = element_text(size = 8),
+  panel.border = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  axis.line.y = element_line("grey", size = 0.2),
+  axis.line.x = element_line("grey", size = 0.2),
+  panel.background = element_rect(fill = 'white', colour = 'white'),
+  strip.background = element_rect(fill = 'white', colour = 'white')
+)
+
+
+
+```
+
+
+
+```{r}
+
+scenarios <- scenarios %>% 
+    mutate(gender_bi = factor(gender,
+       levels = c("Male", "Female", "Other"),
+  labels = c("Male", "Female or Other", "Female or Other")
+    )) %>% 
+  mutate(holocaust_is_fact = fct_relevel(holocaust_is_fact,
+        c("True", "Do not know", "False"))) %>% 
+    mutate(climate_change_true = fct_relevel(climate_change_true,
+        c("True", "Do not know", "False")))
+  
+# levels(scenarios$holocaust_is_fact)
+
+```
+
+```{r, functions for moderation analysis}
+
+
+glm_table <- function(glm_0, glm_1) {
+  glm0_tbl <- tidy(glm_0, conf.level = 0.95, conf.int = TRUE) %>%
+    dplyr::select(-statistic,-p.value) %>%
+    mutate(variance = std.error ** 2) %>%
+    mutate(var = diag(vcov(glm_0)))
+  
+  glm1_tbl <- tidy(glm_1, conf.level = 0.95, conf.int = TRUE) %>%
+    dplyr::select(-statistic,-p.value) %>%
+    mutate(variance = std.error ** 2) %>%
+    mutate(var = diag(vcov(glm_1)))
+  
+  colnames(glm1_tbl) <-
+    c("term1",
+      "estimate1",
+      "std.error1",
+      "conf.low1",
+      "conf.high1",
+      "variance1",
+      "var1")
+  
+  glm_tbl <- cbind(glm0_tbl, glm1_tbl)
+}
+
+atme_table <- function(glm_tbl) {
+  diff_table <- glm_tbl %>%
+    dplyr::select(-term1) %>%
+    mutate(ATME = estimate1 - estimate) %>%
+    mutate(pooled_std.error = sqrt(var + var1)) %>%
+    mutate(ATME_lower = ATME - (1.96 * pooled_std.error)) %>% #calculate 95% confidence intervals
+    mutate(ATME_upper = ATME + (1.96 * pooled_std.error))
+}
+
+
+```
+
+
+
+the idea is to make one plot for severity of harms 4 scenarios moderation by beliefs and partisanship
+
+```{r, glm severity of harms, anti-vax}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <-
+  scenarios %>% filter(level_4 == "Anti-vaccination") %>%
+  filter(level_7 == "None")
+
+subset_1 <-
+  scenarios %>% filter(level_4 == "Anti-vaccination") %>%
+  filter(level_7 == "Severe")
+#+ ideology  + age + education + gender_bi
+
+glm_0 <-
+  glm(choice ~ vaccines_cause_infertility + party  + age + education + gender_bi,
+      data = subset_0)
+
+glm_1 <-
+  glm(choice ~ vaccines_cause_infertility + party  + age + education + gender_bi,
+      data = subset_1)
+
+
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+
+diff_table_S_antivax <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "vaccines_cause_infertility") |
+           str_detect(term, "party")) %>%
+  mutate(scenario = "Anti-vaccination")
+
+
+```
+
+
+```{r, glm severity of harms, election}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Election denial") %>% 
+  filter(level_7 == "None")
+
+subset_1 <- scenarios %>% filter(level_4 == "Election denial") %>% 
+  filter(level_7 == "Severe")
+
+glm_0 <-
+  glm(
+    choice ~ election_was_stolen + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ election_was_stolen + party   + age + education + gender_bi, data = subset_1
+  )
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_S_election <- atme_table(glm_tbl) %>%   #
+    filter(str_detect(term, "election_was_stolen")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Election denial")
+
+```
+
+```{r, glm severity of harms, holocaust}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Holocaust denial") %>% 
+  filter(level_7 == "None")
+
+subset_1 <- scenarios %>% filter(level_4 == "Holocaust denial") %>% 
+  filter(level_7 == "Severe")
+
+glm_0 <-
+  glm(
+    choice ~ holocaust_is_fact + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ holocaust_is_fact + party   + age + education + gender_bi, data = subset_1
+  )
+
+  
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_S_holocaust <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "holocaust_is_fact")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Holocaust denial")
+
+```
+
+```{r, glm severity of harms, holocaust}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Climate change denial") %>% 
+  filter(level_7 == "None")
+
+subset_1 <- scenarios %>% filter(level_4 == "Climate change denial") %>% 
+  filter(level_7 == "Severe")
+
+# levels(subset_1$gender_bi)
+
+glm_0 <-
+  glm(
+    choice ~ climate_change_true + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ climate_change_true + party   + age + education + gender_bi, data = subset_1
+  )
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_S_climate <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "climate_change_true")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Climate change denial") 
+
+```
+
+
+now the same for pattern of behavior 4 scenarios moderation by beliefs and partisanship
+
+```{r, glm pattern, anti-vax}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Anti-vaccination") %>% 
+  filter(level_6 == "First time")
+
+subset_1 <- scenarios %>% filter(level_4 == "Anti-vaccination") %>% 
+  filter(level_6 != "First time")
+
+glm_0 <-
+  glm(
+    choice ~ vaccines_cause_infertility + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ vaccines_cause_infertility + party   + age + education + gender_bi, data = subset_1
+  )
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_P_antivax <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "vaccines_cause_infertility")|str_detect(term, "party")) %>% 
+  mutate(scenario = "Anti-vaccination")
+
+```
+
+```{r, glm pattern, election}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Election denial") %>% 
+  filter(level_6 == "First time")
+
+subset_1 <- scenarios %>% filter(level_4 == "Election denial") %>% 
+  filter(level_6 != "First time")
+
+glm_0 <-
+  glm(
+    choice ~ election_was_stolen + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ election_was_stolen + party   + age + education + gender_bi, data = subset_1
+  )
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_P_election <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "election_was_stolen")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Election denial")
+
+```
+
+```{r, glm pattern, holocaust}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Holocaust denial") %>% 
+  filter(level_6 == "First time")
+
+subset_1 <- scenarios %>% filter(level_4 == "Holocaust denial") %>% 
+  filter(level_6 != "First time")
+
+glm_0 <-
+  glm(
+    choice ~ holocaust_is_fact + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ holocaust_is_fact + party   + age + education + gender_bi, data = subset_1
+  )
+
+  
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_P_holocaust <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "holocaust_is_fact")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Holocaust denial")
+
+```
+
+```{r, glm pattern, climate}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Climate change denial") %>% 
+  filter(level_6 == "First time")
+
+subset_1 <- scenarios %>% filter(level_4 == "Climate change denial") %>% 
+  filter(level_6 != "First time")
+
+glm_0 <-
+  glm(
+    choice ~ climate_change_true + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ climate_change_true + party   + age + education + gender_bi, data = subset_1
+  )
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_P_climate <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "climate_change_true")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Climate change denial") 
+
+```
+
+
+
+now the same for N of followers 4 scenarios moderation by beliefs and partisanship
+
+```{r, glm N of fol, anti-vax}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Anti-vaccination") %>% 
+  filter(level_3 != "> 1,000,000")
+
+subset_1 <- scenarios %>% filter(level_4 == "Anti-vaccination") %>% 
+  filter(level_3 == "> 1,000,000")
+
+glm_0 <-
+  glm(
+    choice ~ vaccines_cause_infertility + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ vaccines_cause_infertility + party   + age + education + gender_bi, data = subset_1
+  )
+
+  
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_N_antivax <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "vaccines_cause_infertility")|str_detect(term, "party")) %>% 
+  mutate(scenario = "Anti-vaccination")
+
+```
+
+```{r, glm N of fol, election}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Election denial") %>% 
+  filter(level_3 != "> 1,000,000")
+
+subset_1 <- scenarios %>% filter(level_4 == "Election denial") %>% 
+  filter(level_3 == "> 1,000,000")
+
+glm_0 <-
+  glm(
+    choice ~ election_was_stolen + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ election_was_stolen + party   + age + education + gender_bi, data = subset_1
+  )
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_N_election <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "election_was_stolen")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Election denial")
+
+```
+
+```{r, glm N of fol, holocaust}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Holocaust denial") %>% 
+  filter(level_3 != "> 1,000,000")
+
+subset_1 <- scenarios %>% filter(level_4 == "Holocaust denial") %>% 
+  filter(level_3 == "> 1,000,000")
+
+glm_0 <-
+  glm(
+    choice ~ holocaust_is_fact + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ holocaust_is_fact + party   + age + education + gender_bi, data = subset_1
+  )
+
+  
+glm_tbl <- glm_table(glm_0, glm_1)
+
+
+diff_table_N_holocaust <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "holocaust_is_fact")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Holocaust denial")
+
+```
+
+```{r, glm N of fol, climate}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Climate change denial") %>% 
+  filter(level_3 != "> 1,000,000")
+
+subset_1 <- scenarios %>% filter(level_4 == "Climate change denial") %>% 
+  filter(level_3 == "> 1,000,000")
+
+glm_0 <-
+  glm(
+    choice ~ climate_change_true + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ climate_change_true + party   + age + education + gender_bi, data = subset_1
+  )
+
+  
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_N_climate <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "climate_change_true")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Climate change denial") 
+
+```
+
+
+now the same for the account type 4 scenarios moderation by beliefs and partisanship
+
+```{r, glm account, anti-vax}
+levels(scenarios$level_1)
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Anti-vaccination") %>% 
+  filter(str_detect(level_1, "Politic", negate = TRUE))
+
+subset_1 <- scenarios %>% filter(level_4 == "Anti-vaccination") %>% 
+  filter(str_detect(level_1, "Politic"))
+
+glm_0 <-
+  glm(
+    choice ~ vaccines_cause_infertility + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ vaccines_cause_infertility + party   + age + education + gender_bi, data = subset_1
+  )
+
+  
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_A_antivax <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "vaccines_cause_infertility")|str_detect(term, "party")) %>% 
+  mutate(scenario = "Anti-vaccination")
+
+```
+
+```{r, glm account, election}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Election denial") %>% 
+  filter(str_detect(level_1, "Politic", negate = TRUE))
+
+subset_1 <- scenarios %>% filter(level_4 == "Election denial") %>% 
+  filter(str_detect(level_1, "Politic"))
+
+glm_0 <-
+  glm(
+    choice ~ election_was_stolen + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ election_was_stolen + party   + age + education + gender_bi, data = subset_1
+  )
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_A_election <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "election_was_stolen")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Election denial")
+
+```
+
+```{r, glm  account, holocaust}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Holocaust denial") %>% 
+  filter(str_detect(level_1, "Politic", negate = TRUE))
+
+subset_1 <- scenarios %>% filter(level_4 == "Holocaust denial") %>% 
+  filter(str_detect(level_1, "Politic"))
+
+glm_0 <-
+  glm(
+    choice ~ holocaust_is_fact + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ holocaust_is_fact + party + age + education + gender_bi, data = subset_1
+  )
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_A_holocaust <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "holocaust_is_fact")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Holocaust denial")
+
+```
+
+```{r, glm N of fol, climate}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Climate change denial") %>% 
+  filter(str_detect(level_1, "Politic", negate = TRUE))
+
+subset_1 <- scenarios %>% filter(level_4 == "Climate change denial") %>% 
+  filter(str_detect(level_1, "Politic"))
+
+glm_0 <-
+  glm(
+    choice ~ climate_change_true + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ climate_change_true + party   + age + education + gender_bi, data = subset_1
+  )
+
+  
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_A_climate <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "climate_change_true")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Climate change denial") 
+
+```
+
+
+
+now the same for account's partisanship 4 scenarios moderation by beliefs and partisanship
+
+```{r, glm acc party, anti-vax}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Anti-vaccination") %>% 
+  filter(level_2 == "Democrat")
+
+subset_1 <- scenarios %>% filter(level_4 == "Anti-vaccination") %>% 
+  filter(level_2 == "Republican")
+
+glm_0 <-
+  glm(
+    choice ~ vaccines_cause_infertility + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ vaccines_cause_infertility + party   + age + education + gender_bi, data = subset_1
+  )
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_AP_antivax <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "vaccines_cause_infertility")|str_detect(term, "party")) %>% 
+  mutate(scenario = "Anti-vaccination")
+
+```
+
+```{r, glm acc party, election}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Election denial") %>% 
+  filter(level_2 == "Democrat")
+
+subset_1 <- scenarios %>% filter(level_4 == "Election denial") %>% 
+  filter(level_2 == "Republican")
+
+glm_0 <-
+  glm(
+    choice ~ election_was_stolen + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ election_was_stolen + party   + age + education + gender_bi, data = subset_1
+  )
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_AP_election <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "election_was_stolen")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Election denial")
+
+```
+
+```{r, glm acc party, holocaust}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Holocaust denial") %>% 
+  filter(level_2 == "Democrat")
+
+subset_1 <- scenarios %>% filter(level_4 == "Holocaust denial") %>% 
+  filter(level_2 == "Republican")
+
+glm_0 <-
+  glm(
+    choice ~ holocaust_is_fact + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ holocaust_is_fact + party  + age + education + gender_bi, data = subset_1
+  )
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_AP_holocaust <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "holocaust_is_fact")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Holocaust denial")
+
+```
+
+```{r, glm pattern, climate}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Climate change denial") %>% 
+  filter(level_2 == "Democrat")
+
+subset_1 <- scenarios %>% filter(level_4 == "Climate change denial") %>% 
+  filter(level_2 == "Republican")
+
+glm_0 <-
+  glm(
+    choice ~ climate_change_true + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ climate_change_true + party   + age + education + gender_bi, data = subset_1
+  )
+
+  
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_AP_climate <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "climate_change_true")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Climate change denial") 
+
+```
+
+
+
+
+now the same for level of falseness 4 scenarios moderation by beliefs and partisanship
+
+```{r, glm false, anti-vax}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Anti-vaccination") %>% 
+  filter(level_5 == "Misleading")
+
+subset_1 <- scenarios %>% filter(level_4 == "Anti-vaccination") %>% 
+  filter(level_5 != "Misleading")
+
+glm_0 <-
+  glm(
+    choice ~ vaccines_cause_infertility + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ vaccines_cause_infertility + party   + age + education + gender_bi, data = subset_1
+  )
+
+  
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_F_antivax <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "vaccines_cause_infertility")|str_detect(term, "party")) %>% 
+  mutate(scenario = "Anti-vaccination")
+
+```
+
+```{r, glm false, election}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Election denial") %>% 
+  filter(level_5 == "Misleading")
+
+subset_1 <- scenarios %>% filter(level_4 == "Election denial") %>% 
+  filter(level_5 != "Misleading")
+
+glm_0 <-
+  glm(
+    choice ~ election_was_stolen + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ election_was_stolen + party   + age + education + gender_bi, data = subset_1
+  )
+
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_F_election <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "election_was_stolen")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Election denial")
+
+```
+
+```{r, glm false, holocaust}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Holocaust denial") %>% 
+  filter(level_5 == "Misleading")
+
+subset_1 <- scenarios %>% filter(level_4 == "Holocaust denial") %>% 
+  filter(level_5 != "Misleading")
+
+glm_0 <-
+  glm(
+    choice ~ holocaust_is_fact + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ holocaust_is_fact + party   + age + education + gender_bi, data = subset_1
+  )
+
+  
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_F_holocaust <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "holocaust_is_fact")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Holocaust denial")
+
+```
+
+```{r, glm false, climate}
+#subset data by treatment level, here by N of followers, where over 1 mil = 1, else = 0 control codiron 0 = less than 1 mil
+subset_0 <- scenarios %>% filter(level_4 == "Climate change denial") %>% 
+  filter(level_5 == "Misleading")
+
+subset_1 <- scenarios %>% filter(level_4 == "Climate change denial") %>% 
+  filter(level_5 != "Misleading")
+
+glm_0 <-
+  glm(
+    choice ~ climate_change_true + party  + age + education + gender_bi, data = subset_0
+  )
+
+glm_1 <-
+  glm(
+    choice ~ climate_change_true + party  + age + education + gender_bi, data = subset_1
+  )
+
+  
+glm_tbl <- glm_table(glm_0, glm_1)
+
+diff_table_F_climate <- atme_table(glm_tbl) %>%
+  filter(str_detect(term, "climate_change_true")|str_detect(term, "party"))%>% 
+  mutate(scenario = "Climate change denial") 
+
+```
+
+```{r}
+
+diff_table_A <-rbind(diff_table_A_election, diff_table_A_antivax, diff_table_A_holocaust, diff_table_A_climate) %>% 
+  mutate(attribute = "Account\n(Political\nrelative to\nNonpolitical)")
+
+diff_table_N <-rbind(diff_table_N_election, diff_table_N_antivax, diff_table_N_holocaust, diff_table_N_climate) %>% 
+  mutate(attribute = "Number\nof followers\n(> 1 million\nrelative to\n< 1 million)")
+
+diff_table_P <-rbind(diff_table_P_election, diff_table_P_antivax, diff_table_P_holocaust, diff_table_P_climate) %>% 
+  mutate(attribute = "Pattern\nof behavior\n(Repeated\nrelative to\nFirst time)")
+
+diff_table_S <-rbind(diff_table_S_election, diff_table_S_antivax, diff_table_S_holocaust, diff_table_S_climate) %>% 
+  mutate(attribute = "Severity\nof harms\n(Severe\nrelative to\nNone)")
+
+diff_table_AP <-rbind(diff_table_AP_election, diff_table_AP_antivax, diff_table_AP_holocaust, diff_table_AP_climate) %>% 
+  mutate(attribute = "Account's\npartisanship\n(Republican\nrelative to\nDemocrat)")
+
+diff_table_F <-rbind(diff_table_F_election, diff_table_F_antivax, diff_table_F_holocaust, diff_table_F_climate) %>% 
+  mutate(attribute = "Level\nof falseness\n(Completely false\nrelative to\nMisleading)")
+
+```
+
+```{r}
+
+
+diff_table_all <-
+  rbind(diff_table_A,
+        diff_table_AP,
+        diff_table_N,
+        diff_table_F,
+        diff_table_P,
+        diff_table_S) %>%
+  mutate(scenario = as.factor(scenario)) %>%
+  mutate(scenario = fct_relevel(
+    scenario,
+    c(
+      "Election denial",
+      "Anti-vaccination",
+      "Holocaust denial",
+      "Climate change denial"
+    )
+  )) %>%
+  mutate(ATME_round = round(ATME, 2)) %>%
+  mutate(attribute = as.factor(attribute))
+
+
+
+diff_table_all_acc <- diff_table_all %>%
+  filter(str_detect(term, "True") |
+           str_detect(term, "Do not know") | str_detect(term, "False")) %>%
+  mutate(
+    belief = ifelse(
+      str_detect(term, "Do not know"),
+      "Do not know (relative to accurate belief)",
+      "Inaccurate belief (relative to accurate belief)"
+    )
+  ) %>%
+  mutate(belief = as.factor(belief)) %>%
+  mutate(
+    party = ifelse(
+      str_detect(term, "Independent"),
+      "Independent (relative to Democrat)",
+      "Republican (relative to Democrat)"
+    )
+  )
+
+
+
+diff_table_all_party <- diff_table_all  %>%
+  filter(str_detect(term, "party")) %>%
+  mutate(
+    party = ifelse(
+      str_detect(term, "Independent"),
+      "Independent (relative to Democrat)",
+      "Republican (relative to Democrat)"
+    )
+  )
+```
+
+```{r, plot atmes choice}
+
+
+
+data <-
+  filter(diff_table_all_acc, belief == str_detect(belief, "Inaccurate"))
+
+atme_plot_all_acc <- diff_table_all_acc %>%
+  ggplot(aes(
+    x = reorder(scenario, desc(scenario)),
+    y = ATME,
+    ymin = ATME_lower,
+    ymax = ATME_upper,
+    color = belief
+  )) +
+  facet_grid(~ attribute, scales = "free") +
+  scale_y_continuous(breaks = seq(from = -0.1, to = 0.1, by = 0.1),
+                     limits = c(-0.18, 0.18)) +
+  geom_hline(
+    yintercept = 0,
+    alpha = .5,
+    linetype = "dashed",
+    size = 0.2
+  ) +
+  geom_point(position = position_dodge(width = 0.5), size = 1.3) +
+  geom_errorbar(position = position_dodge(width = 0.5),
+                size = 0.25,
+                width = 0) +
+  # geom_pointrange(position = position_dodge(width = 0.5), size = 0.2) +
+  geom_text(
+    aes(label = ifelse(
+      str_detect(belief, "Inaccurate"),
+      sprintf("%0.2f", ATME_round),
+      ""
+    )),
+    color = "black",
+    size = 1.5,
+    nudge_x = 0.23
+  ) +
+  geom_text(
+    aes(label = ifelse(
+      str_detect(belief, "Do not know"),
+      sprintf("%0.2f", ATME_round),
+      ""
+    )),
+    color = "black",
+    size = 1.5,
+    nudge_x = 0.005
+  ) +
+  coord_flip() +
+  scale_color_manual(values = c("darkgrey", "#6c3903")) +
+  labs(title = "A. Moderation effects of beliefs on choice to remove posts",
+       y = "Moderation by accuracy of the effect of conjoint attributes on probability to remove posts",
+       x = "")
+atme_plot_all_acc
+
+
+palette_partisan  <- c("#967cae", "#d04b4b")
+atme_plot_all_party <- diff_table_all_party %>%
+  ggplot(aes(
+    x = reorder(scenario, desc(scenario)),
+    y = ATME,
+    ymin = ATME_lower,
+    ymax = ATME_upper,
+    color = party
+  )) +
+  facet_grid(~ attribute, scales = "free") +
+  scale_y_continuous(breaks = seq(from = -0.1, to = 0.1, by = 0.1),
+                     limits = c(-0.18, 0.18)) +
+  geom_hline(
+    yintercept = 0,
+    alpha = .5,
+    linetype = "dashed",
+    size = 0.2
+  ) +
+  geom_point(position = position_dodge(width = 0.5), size = 1.3) +
+  geom_errorbar(position = position_dodge(width = 0.5),
+                size = 0.25,
+                width = 0) +
+  # geom_pointrange(position = position_dodge(width = 0.5), size = 0.2) +
+  geom_text(
+    aes(label = ifelse(
+      str_detect(party, "Republican"),
+      sprintf("%0.2f", ATME_round),
+      ""
+    )),
+    color = "black",
+    size = 1.5,
+    nudge_x = 0.23
+  ) +
+  geom_text(
+    aes(label = ifelse(
+      str_detect(party, "Independent"),
+      sprintf("%0.2f", ATME_round),
+      ""
+    )),
+    color = "black",
+    size = 1.5,
+    nudge_x = 0.005
+  ) +
+  coord_flip() +
+  scale_color_manual(values = palette_partisan) +
+  labs(title = "B. Moderation effects of partisanship on choice to remove posts",
+       y = "Moderation by partisanship of the conjoint attributes on probability to remove posts",
+       x = "")
+atme_plot_all_party
+
+
+moderation_choice <-
+  plot_grid(
+    atme_plot_all_acc,
+    atme_plot_all_party,
+    ncol = 1,
+    scale = c(.98, .98)
+  )
+moderation_choice
+
+ggsave(
+  filename = here("figs/SI_moderation_choice.png"),
+  plot = moderation_choice,
+  dpi = 300,
+  units = 'cm',
+  height = 22,
+  width = 17.8
+)
+
+ggsave(
+  filename = here("figs/SI_moderation_choice.pdf"),
+  plot = moderation_choice,
+  dpi = 300,
+  units = 'cm',
+  height = 22,
+  width = 17.8
+)
+            
+```
+
+
+
+
+
+
+
+
+
+
+
+

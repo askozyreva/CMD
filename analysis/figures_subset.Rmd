@@ -8,7 +8,7 @@ output: html_document
 if(!require("pacman")) install.packages("pacman"); library(pacman)
 p_load("tidyverse", "here", "readr",  "workflowr",
           "readxl", "jtools", "broom", "kableExtra", "knitr",
-          "sjlabelled", "dplyr", "janitor", "ggplot2", "kableExtra", "cjoint", "cregg", "stringr", "wesanderson", "ggpubr", "lme4", "broom.mixed", "ggsci",  "webshot", "ggthemes", "xtable", "ggeffects", "parameters", "scales", "questionr", "ggdist", "gghalves")
+          "sjlabelled", "dplyr", "janitor", "ggplot2", "kableExtra", "cjoint", "cregg", "stringr", "wesanderson", "ggpubr", "lme4", "jtools", "broom.mixed", "ggsci",  "webshot", "ggthemes", "xtable", "ggeffects", "parameters", "scales", "questionr", "ggdist", "gghalves", "cowplot")
 
 # devtools::install_github("awhstin/awtools")
 
@@ -25,2018 +25,339 @@ knitr::opts_chunk$set(echo = TRUE)
 
 scenarios <- import(here('data/scenarios.RData'))
 
-scenario_1 <- import(here('data/scenario_1.RData'))
-scenario_2 <- import(here('data/scenario_2.RData'))
-scenario_3 <- import(here('data/scenario_3.RData'))
-scenario_4 <- import(here('data/scenario_4.RData'))
-
 
 ```
 
-```{r theming, cache = FALSE}
 
-theme_set(theme_apa())
+
+```{r theming fig 2 SI, cache = FALSE}
+
 theme_update(
-  panel.spacing = unit(10, "pt"),
   legend.position = "bottom",
   legend.justification = 0.5,
-  legend.text = element_text(size = 8),
-  legend.title = element_text(size = 8),
-  strip.text = element_text(size = 11),
-  plot.title = element_text(size = 12),
+  legend.text = element_text(size = 6),
+  legend.title = element_blank(),
+  plot.title = element_text(size = 10, face = "bold"),
   plot.title.position = "plot",
-  axis.text.y = element_text(size = 10),
-  axis.text.x = element_text(size = 10),
-  axis.title.x = element_text(size = 10),
-  axis.title.y = element_text(size = 10),
+  plot.subtitle = element_text(size = 8),
+  axis.text.y = element_text(size = 6, face = "bold"),
+  axis.text.x = element_text(size = 6, face = "bold"),
+  axis.title.x = element_text(size = 8),
+  axis.title.y = element_text(size = 8),
   panel.border = element_blank(),
   panel.grid.major = element_blank(),
   panel.grid.minor = element_blank(),
   axis.line.y = element_line("grey", size = 0.2),
-  axis.line.x = element_line("grey", size = 0.2)
+  axis.line.x = element_line("grey", size = 0.2),
+  panel.background = element_rect(fill = 'white', colour = 'white'),
+  strip.background = element_rect(fill = 'white', colour = 'white'),
+  strip.text.x = element_text(size = 7, face = "bold"),
+  strip.text.y = element_text(size = 7, face = "bold"),
 )
 
-```
 
+```
 
 
 ```{r, prepare subset data}
 
-scenario1sub <- scenario_1 %>%
-  filter(election_was_stolen == "False")
-
-scenario2sub <- scenario_2 %>%
-  filter(vaccines_cause_infertility == "False")
-
-scenario3sub <- scenario_3 %>%
-  filter(holocaust_is_fact == "True")
 
 
-scenario4sub <- scenario_4 %>%
-  filter(climate_change_true == "True")
-
-scenarios_sub <-
-  rbind(scenario1sub, scenario2sub, scenario3sub, scenario4sub) %>%
-  mutate(level_4 = factor(
-    level_4,
-    levels = c(
-      "Scenario 4: Climate change denial",
-      "Scenario 3: Holocaust denial",
-      "Scenario 2: Anti-vaccination",
-      "Scenario 1: Election denial"
-    ),
-    labels = c(
-      "Climate change denial",
-      "Holocaust denial",
-      "Anti-vaccination",
-      "Election denial"
-    )
-  )) %>%
-  mutate(scenario = factor(
-    scenario,
-    levels = c("1_election", "2_antivaxx",  "3_holocaust", "4_climate"),
-    labels = c(
-      "Scenario 1: Election denial",
-      "Scenario 2: Anti-vaccination",
-      "Scenario 3: Holocaust denial",
-      "Scenario 4: Climate change denial"
-    )
-  )) %>%
-  mutate(level_1 = factor(
-    level_1,
-    levels = c(
-      "A private citizen",
-      "A celebrity" ,
-      "A political activist",
-      "A politician\n(s1:presidential candidate)",
-      "An elected politician"
-    ),
-    labels = c(
-      "Private citizen",
-      "Celebrity" ,
-      "Political activist",
-      "Politician",
-      "Politician"
-    )
-  )) %>%
-  mutate(party = factor(
-    party,
-    levels = c("Democrat", "Independent or not sure", "Republican"),
-    labels = c("Democrat",  "Independent" ,  "Republican")
-  )) %>%
-  mutate(level_7 = factor(
-    level_7,
-    levels = c(
-      "No consequences",
-      "Consequences_medium",
-      "Consequences_severe"
-    ),
-    labels = c("None", "Medium",  "Severe")
-  )) %>%
-  mutate(level_6 = factor(
-    level_6,
-    levels = c("Pattern: first time", "Pattern: not the first time"),
-    labels = c("First time", "Repeated")
-  )) %>%
-  mutate(level_5 = factor(
-    level_5,
-    levels = c("Information: misleading",  "Information: completely false"),
-    labels = c("Misleading",  "Completely false")
-  )) %>%
-  mutate(level_3 = factor(
-    level_3,
-    levels = c(
-      "less than 100,000 followers",
-      "about 500,000 followers",
-      "more than 1 million followers"
-    ),
-    labels = c("< 100,000",
-               "~ 500,000",
-               "> 1,000,000")
-  )) %>%
-  select(-traits) %>%
-  drop_na(contains("level"))
-
-attr(scenarios_sub$level_1, "label") <- "Account"
-attr(scenarios_sub$level_2, "label") <- "Account's partisanship"
-attr(scenarios_sub$level_3, "label") <- "Number of followers"
-attr(scenarios_sub$level_4, "label") <- "Misinformation topic"
-attr(scenarios_sub$level_5, "label") <- "Level of falseness"
-attr(scenarios_sub$level_6, "label") <- "Pattern of behavior"
-attr(scenarios_sub$level_7, "label") <- "Severity of harms"
+scenarios_sub <- scenarios %>%
+  filter(
+    election_was_stolen == "False" |
+      vaccines_cause_infertility == "False" |
+      holocaust_is_fact == "True" | climate_change_true == "True"
+  )
 
 
-# write.csv(scenarios, here("data/scenarios.csv"))
-# save(scenarios_sub,file = "data/scenarios_sub.RData")
+
+scenarios_sub_inacc <- scenarios %>%
+  filter(
+    election_was_stolen != "False" |
+      vaccines_cause_infertility != "False" |
+      holocaust_is_fact != "True" | climate_change_true != "True"
+  )
 
 ```
 
-Opposite subset for believers in misinformation
 
-```{r, prepapre misinfo belivers subset data}
-
-scenario1sub_x <- scenario_1 %>%
-  filter(election_was_stolen != "False")
-
-scenario2sub_x <- scenario_2 %>%
-  filter(vaccines_cause_infertility != "False")
-
-scenario3sub_x <- scenario_3 %>%
-  filter(holocaust_is_fact != "True")
+```{r fig 2 SI subset accurate panel A}
 
 
-scenario4sub_x <- scenario_4 %>%
-  filter(climate_change_true != "True")
+mm_rating_bi_acc <-
+  cj(scenarios_sub,
+     rating_bi ~ level_4,
+     id = ~ id,
+     estimate = "mm") %>%
+  select(c("feature", "level", "estimate", "std.error", "lower", "upper")) %>%
+  mutate(var = "Dichotomized rating:\nDo nothing or issue a warning vs.\ntemporarily or indefinitely suspend account")
 
-scenarios_sub_x <-
-  rbind(scenario1sub_x,
-        scenario2sub_x,
-        scenario3sub_x,
-        scenario4sub_x) %>%
-  mutate(level_4 = factor(
-    level_4,
-    levels = c(
-      "Scenario 4: Climate change denial",
-      "Scenario 3: Holocaust denial",
-      "Scenario 2: Anti-vaccination",
-      "Scenario 1: Election denial"
-    ),
-    labels = c(
-      "Climate change denial",
-      "Holocaust denial",
-      "Anti-vaccination",
-      "Election denial"
-    )
-  )) %>%
-  mutate(scenario = factor(
-    scenario,
-    levels = c("1_election", "2_antivaxx",  "3_holocaust", "4_climate"),
-    labels = c(
-      "Scenario 1: Election denial",
-      "Scenario 2: Anti-vaccination",
-      "Scenario 3: Holocaust denial",
-      "Scenario 4: Climate change denial"
-    )
-  )) %>%
-  mutate(level_1 = factor(
-    level_1,
-    levels = c(
-      "A private citizen",
-      "A celebrity" ,
-      "A political activist",
-      "A politician\n(s1:presidential candidate)",
-      "An elected politician"
-    ),
-    labels = c(
-      "Private citizen",
-      "Celebrity" ,
-      "Political activist",
-      "Politician",
-      "Politician"
-    )
-  )) %>%
-  mutate(party = factor(
-    party,
-    levels = c("Democrat", "Independent or not sure", "Republican"),
-    labels = c("Democrat",  "Independent" ,  "Republican")
-  )) %>%
-  mutate(level_7 = factor(
-    level_7,
-    levels = c(
-      "No consequences",
-      "Consequences_medium",
-      "Consequences_severe"
-    ),
-    labels = c("None", "Medium",  "Severe")
-  )) %>%
-  mutate(level_6 = factor(
-    level_6,
-    levels = c("Pattern: first time", "Pattern: not the first time"),
-    labels = c("First time", "Repeated")
-  )) %>%
-  mutate(level_5 = factor(
-    level_5,
-    levels = c("Information: misleading",  "Information: completely false"),
-    labels = c("Misleading",  "Completely false")
-  )) %>%
-  mutate(level_3 = factor(
-    level_3,
-    levels = c(
-      "less than 100,000 followers",
-      "about 500,000 followers",
-      "more than 1 million followers"
-    ),
-    labels = c("< 100,000",
-               "~ 500,000",
-               "> 1,000,000")
-  )) %>%
-  select(-traits) %>%
-  drop_na(contains("level"))
+mm_choice_acc <-
+  cj(scenarios_sub,
+     choice ~ level_4,
+     id = ~ id,
+     estimate = "mm") %>%
+  select(c("feature", "level", "estimate", "std.error", "lower", "upper")) %>%
+  mutate(var = "Choice:\nDo nothing vs. remove posts")
 
-attr(scenarios_sub_x$level_1, "label") <- "Account"
-attr(scenarios_sub_x$level_2, "label") <- "Account's partisanship"
-attr(scenarios_sub_x$level_3, "label") <- "Number of followers"
-attr(scenarios_sub_x$level_4, "label") <- "Msinformation topic"
-attr(scenarios_sub_x$level_5, "label") <- "Level of falseness"
-attr(scenarios_sub_x$level_6, "label") <- "Pattern of behavior"
-attr(scenarios_sub_x$level_7, "label") <- "Severity of harms"
+mm_all_acc <- rbind(mm_rating_bi_acc, mm_choice_acc) %>%
+  mutate(estimate_str = format(100 * estimate, digits = 1, trim = TRUE)) %>%
+  mutate(accuracy = "Accurate beliefs")
 
 
-# write.csv(scenarios, here("data/scenarios.csv"))
-# save(scenarios_sub_x,file = "data/scenarios_sub_x.RData")
+mm_rating_bi_inacc <-
+  cj(scenarios_sub_inacc,
+     rating_bi ~ level_4,
+     id = ~ id,
+     estimate = "mm") %>%
+  select(c("feature", "level", "estimate", "std.error", "lower", "upper")) %>%
+  mutate(var = "Dichotomized rating:\nDo nothing or issue a warning vs.\ntemporarily or indefinitely suspend account")
+
+mm_choice_inacc <-
+  cj(scenarios_sub_inacc,
+     choice ~ level_4,
+     id = ~ id,
+     estimate = "mm") %>%
+  select(c("feature", "level", "estimate", "std.error", "lower", "upper")) %>%
+  mutate(var = "Choice:\nDo nothing vs. remove posts")
+
+mm_all_inacc <- rbind(mm_rating_bi_inacc, mm_choice_inacc) %>%
+  mutate(estimate_str = format(100 * estimate, digits = 1, trim = TRUE)) %>%
+  mutate(accuracy = "Inaccurate or uncertain beliefs")
+
+mm_all <- rbind(mm_all_acc, mm_all_inacc)
 
 ```
 
 
 
-```{r}
-
-sc <- scenarios_sub %>% dplyr::select(id, level_1, level_2, level_3, level_4, level_5, level_6, level_7)%>%
-  drop_na()
+```{r prep by party and accuracy}
 
 
-freq <- rbind(freq(sc$level_1), freq(sc$level_2), freq(sc$level_3), freq(sc$level_4), freq(sc$level_5), freq(sc$level_6), freq(sc$level_7)) %>% 
-  dplyr::select(-"val%")
-
-table_freq <- freq %>% 
-  kbl(col.names = c("n", "%"))%>%
-  kable_paper("striped", full_width = F, position = "left")
-  save_kable(file = here("figs/table_freq.png"), zoom = 1.5)
-table_freq
-
-table_freq_tex <- freq %>% 
-  kbl(booktabs = TRUE,
-    caption = "Frequencies of conjoint features\\label{tbl:frequencies}",
-    table.envir = "table*",
-    col.names = c("n", "%"),
-    format = "latex")%>%
-  kable_paper("striped", full_width = F, position = "left")
-
-
-write_lines(table_freq_tex, here("figs/tbl_freq_sub.tex"))
-
-```
-
-# Conjoint analysis (scenarios) for the subset
-
-
-
-```{r fig.width = 8, fig.height= 8, echo=TRUE, warning = FALSE}
-# 
-amces_ch <- cj(scenarios_sub, choice ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3, id = ~id, estimate = "amce")
-amces_all <- plot(amces_ch, size =3) + 
-  xlim(-0.05, 0.15) +
-  geom_vline(xintercept=0,
-             # size = .8,
-             color = "black",
-             linetype='dashed') +
-  geom_text(
-    aes(label = ifelse(estimate > 0.016|estimate < -0.016, sprintf("%0.2f", estimate), "")),
-    colour = "black", size = 3, position = position_nudge(y = .8)
-  )+
-  facet_wrap(~feature, ncol = 1L,
-             scales = "free_y") + 
-  # theme_igray() + 
-  theme(legend.position = "none")  + 
-  theme(axis.text.y = element_blank()) +
-  theme(strip.text.x = element_blank())+
-  theme(panel.grid.major = element_blank())+
-  scale_color_aaas()+
-  labs(title = "A.2 AMCEs: choice", x = "Effect on probability to remove") 
-
-# amces_ch_table <- head(amces_ch[c("feature",
-#                                     "level",
-#                                     "estimate",
-#                                     "std.error",
-#                                     "lower",
-#                                     "upper")], 24L)
-# xtable(amces_ch_table) 
-
-
-amces_r <- cj(scenarios_sub, rating ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3, id = ~id, estimate = "amce")
-amces_all_r <- plot(amces_r, size =3) +  xlim(-0.1, 0.6) +
-  geom_vline(xintercept=0,
-             # size = .8,
-             color = "black",
-             linetype='dashed') +
-  geom_text(
-    aes(label = ifelse(estimate > 0.1|estimate < -0.1, sprintf("%0.2f", estimate), "")),
-    colour = "black", size = 3, position = position_nudge(y = .6)
-  )+
-  facet_wrap(~feature, ncol = 1L,
-             scales = "free_y") + 
-  # theme_igray() + 
-  theme(legend.position = "none")  + 
-  theme(axis.text.y = element_blank()) +
-  theme(strip.text.x = element_blank())+
-  theme(panel.grid.major = element_blank())+
-  scale_color_aaas()+
-  labs(title = "B.2 AMCEs: rating", x = "Effect on rating") 
-
-# amces_r_table <- head(amces_r[c("feature",
-#                                     "level",
-#                                     "estimate",
-#                                     "std.error",
-#                                     "lower",
-#                                     "upper")], 24L)
-# xtable(amces_r_table)
-
-
-mm_ch <- mm(scenarios_sub, choice ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3, id = ~id)
-
-mm_choice <- plot(mm_ch, vline = 0.5, size=3) + 
-  xlim(0.3, 1) +
-  geom_vline(xintercept=.5,
-             # size = .8,
-             color = "black",
-             linetype='dashed')+
-  #   geom_text(
-  # aes(label = ifelse(estimate > 0|estimate < 0, sprintf("%0.2f", estimate), "")),
-  # colour = "black", size = 2.5, font = "bold", position = position_nudge(y= .01)
-  # ) +
-  facet_wrap(~feature, ncol = 1L,
-             scales = "free_y") +
-  # theme_igray() + 
-  theme(legend.position = "none") +
-  theme(axis.text.y = element_text(size = 10))+
-  theme(strip.text.x = element_blank())+
-  theme(panel.grid.major = element_blank())+
-  theme(axis.text.y = element_text(face = "bold")) +
-  scale_color_aaas() +
-  labs(title = "A.1 MMs: binary choice to remove posts", x = "Marginal Mean for decisions to remove") 
-
-# mm_ch_table <- head(mm_ch[c("feature",
-#                                     "level",
-#                                     "estimate",
-#                                     "std.error",
-#                                     "lower",
-#                                     "upper")], 24L)
-# xtable(mm_ch_table)
-
-#calculate grand mean
-
-mm_r <- mm(scenarios_sub, rating ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3, id = ~id, estimate = "mm")
-
-mm_r <- mm_r %>% 
-  mutate (grand_mean = mean(estimate))
-
-mm_rating <- plot(mm_r, size =3) + 
-  xlim(1,4) +
-  geom_vline(xintercept=2.41,
-             # size = .8,
-             color = "black",
-             linetype='dashed')+
-  #     geom_text(
-  #   aes(label = ifelse(estimate > 0|estimate < 0, sprintf("%0.2f", estimate), "")),
-  #   colour = "black", font = "bold", size = 3, position = position_nudge(y = .5)
-  # )+ 
-  facet_wrap(~feature, ncol = 1L,
-             scales = "free_y") +
-  # theme_igray() + 
-  theme(axis.text.y = element_text(size = 10, face = "bold"))+
-  theme(panel.grid.major = element_blank())+
-  theme(strip.text.x = element_blank())+
-  theme(legend.position = "none") +
-  scale_color_aaas()+ 
-  labs(title = "B.1. MMs: rating to penalize accounts", x = "Marginal Mean for rating")  
-
-# mm_r_table <- head(mm_r[c("feature",
-#                                     "level",
-#                                     "estimate",
-#                                     "std.error",
-#                                     "lower",
-#                                     "upper")], 24L)
-# xtable(mm_r_table)
-
-amce_mm_all <- ggarrange (mm_choice, amces_all,  mm_rating, amces_all_r, ncol =2, nrow = 2, widths = c(0.9, 0.65))
-amce_mm_all 
-
-ggsave(
-  filename = here("figs/figure_3sub.png"),
-  plot = amce_mm_all,
-  dpi = 500,
-  units = 'cm',
-  height = 38,
-  width = 30
-)
-
-ggsave(
-  filename = here("figs/figure_3sub.pdf"),
-  plot = amce_mm_all,
-  dpi = 500,
-  units = 'cm',
-  height = 38,
-  width = 30
-)
-
-```
-
-## Conditional AMCEs (Subgroup analyses) for subset
-
-
-```{r, subgroup by party (choice)}
-
-palette_partisan  <- c("#d04b4b", "#9584a4", "steelblue")
-
-mm_party_ch <-
+mm_rating_bi_party_acc <-
   cj(
     scenarios_sub,
-    choice ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    rating_bi ~ level_4,
     id = ~ id,
     estimate = "mm",
     by =  ~ party
-  )
-mm_party_choice <- plot(mm_party_ch, size = 3, group = "party") +
-  xlim(0.3, 1) +
-  geom_vline(xintercept = .5,
-             # size = .8,
-             color = "black",
-             linetype = 'dashed') +
-  facet_wrap( ~ feature,
-              ncol = 1L,
-              scales = "free_y",
-              shrink = FALSE) +
-  theme_apa() +
-  theme(
-    legend.position = "none",
-    strip.text.x = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.margin = unit(.05, "lines"),
-    panel.border = element_blank(),
-    strip.background = element_blank(),
-    axis.line.y = element_line("grey", size = 0.4),
-    axis.line.x = element_line("grey", size = 0.4)
-  ) +
-  theme(axis.text.y = element_text(size = 10, face = "bold")) +
-  scale_color_manual(values = palette_partisan,
-                     breaks = c("Republican", "Independent", "Democrat")) +
-  labs(title = "A. Marginal means by respondents' party affiliation",
-       subtitle = "Dependent variable: Choice to remove posts",
-       x = "Marginal Mean for decisions to remove")
+  ) %>%
+  select(c(
+    "feature",
+    "level",
+    "BY",
+    "estimate",
+    "std.error",
+    "lower",
+    "upper"
+  )) %>%
+  mutate(var = "Dichotomized rating:\nDo nothing or issue a warning vs.\ntemporarily or indefinitely suspend account")
 
-# mm_party_ch_table <- head(mm_party_ch[c("BY","feature",
-#                                     "level",
-#                                     "estimate",
-#                                     "std.error",
-#                                     "lower",
-#                                     "upper")], 72L)
-# xtable(mm_party_ch_table)
-
-
-amces_party_ch <-
+mm_choice_party_acc <-
   cj(
     scenarios_sub,
-    choice ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    choice ~ level_4,
     id = ~ id,
-    estimate = "amce",
-    by = ~ party
-  )
+    estimate = "mm",
+    by =  ~ party
+  ) %>%
+  select(c(
+    "feature",
+    "level",
+    "BY",
+    "estimate",
+    "std.error",
+    "lower",
+    "upper"
+  )) %>%
+  mutate(var = "Choice:\nDo nothing vs. remove posts")
 
-amces_party_choice <-
-  plot(amces_party_ch, size = 3, group = "party")  +
-  xlim(-0.05, 0.18) +
-  geom_vline(xintercept = 0,
-             # size = .8,
-             color = "black",
-             linetype = 'dashed') +
+mm_all_party_acc <-
+  rbind(mm_rating_bi_party_acc, mm_choice_party_acc) %>%
+  mutate(estimate_str = format(100 * estimate, digits = 1, trim = TRUE)) %>%
+  mutate(accuracy = "Accurate beliefs")
+
+mm_rating_bi_party_inacc <-
+  cj(
+    scenarios_sub_inacc,
+    rating_bi ~ level_4,
+    id = ~ id,
+    estimate = "mm",
+    by =  ~ party
+  ) %>%
+  select(c(
+    "feature",
+    "level",
+    "BY",
+    "estimate",
+    "std.error",
+    "lower",
+    "upper"
+  )) %>%
+  mutate(var = "Dichotomized rating:\nDo nothing or issue a warning vs.\ntemporarily or indefinitely suspend account")
+
+mm_choice_party_inacc <-
+  cj(
+    scenarios_sub_inacc,
+    choice ~ level_4,
+    id = ~ id,
+    estimate = "mm",
+    by =  ~ party
+  ) %>%
+  select(c(
+    "feature",
+    "level",
+    "BY",
+    "estimate",
+    "std.error",
+    "lower",
+    "upper"
+  )) %>%
+  mutate(var = "Choice:\nDo nothing vs. remove posts")
+
+mm_all_party_inacc <-
+  rbind(mm_rating_bi_party_inacc, mm_choice_party_inacc) %>%
+  mutate(estimate_str = format(100 * estimate, digits = 1, trim = TRUE)) %>%
+  mutate(accuracy = "Inaccurate or uncertain beliefs")
+
+
+mm_all_party <- rbind(mm_all_party_acc, mm_all_party_inacc) %>%
+  mutate(var = as.factor(var))
+
+
+```
+
+
+
+```{r fig  SI subset, Panel A}
+
+mm_plot <- mm_all %>%
+  ggplot(
+    aes(
+      x = level,
+      y = 100 * estimate,
+      ymin = 100 * lower,
+      ymax = 100 * upper,
+      group = accuracy,
+      color = accuracy,
+      label = estimate_str
+    )
+  ) +
+  scale_y_continuous(breaks = seq(from = 0, to = 100, by = 20),
+                     limits = c(0, 100)) +
+  geom_vline(aes(xintercept = level), alpha = .02, size = 6) +
+  geom_hline(yintercept = 50,
+             alpha = .2,
+             linetype = "dashed") +
+  geom_point(position = position_dodge(width = 0.3), size = 1.3) +
+  geom_errorbar(position = position_dodge(width = 0.3),
+                size = 0.25,
+                width = 0) +
   geom_text(
-    aes(label = ifelse(
-      estimate > 0.02 | estimate < -0.02, sprintf("%0.2f", estimate), ""
-    )),
-    colour = "black",
-    size = 3,
-    position = position_nudge(y = .5)
+    aes(y = 100 * upper + .25),
+    hjust = "left",
+    color = "black",
+    size = 2,
+    position = position_dodge(width = .3)
   ) +
-  facet_grid(feature ~ factor(BY, levels = c("Republican", "Independent", "Democrat")),
-             scales = "free_y") +
-  theme_apa() +
-  theme(
-    legend.position = "none",
-    # strip.text.x = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.margin = unit(.05, "lines"),
-    panel.border = element_blank(),
-    strip.background = element_blank(),
-    axis.line.y = element_line("grey", size = 0.4),
-    axis.line.x = element_line("grey", size = 0.4),
-    axis.ticks = element_blank(),
-    axis.text.y = element_blank(),
-    strip.text.y = element_blank()
+  scale_color_manual(
+    values = c("#783f04", "#649B97"),
+    breaks = c("Inaccurate or uncertain beliefs", "Accurate beliefs")
   ) +
+  facet_grid( ~ factor(
+    var,
+    levels = c(
+      "Choice:\nDo nothing vs. remove posts",
+      "Dichotomized rating:\nDo nothing or issue a warning vs.\ntemporarily or indefinitely suspend account"
+    )
+  ), scales = "free_y") +
+  labs(title = "A. Subset analysis: Choices by respondents with accurate and inaccurate or uncertain beliefs",
+       # subtitle = "Subset analysis",
+       y = "Proportion of choices to remove posts or suspend account (%)",
+       x = "") +
+  coord_flip()
+mm_plot
+
+
+```
+```{r panel B, party}
+
+palette_partisan  <- c("#d04b4b", "#9584a4", "steelblue")
+
+
+mm_plot_party <- mm_all_party %>%
+  ggplot(
+    aes(
+      x = level,
+      y = 100 * estimate,
+      ymin = 100 * lower,
+      ymax = 100 * upper,
+      group = BY,
+      color = BY,
+      label = estimate_str
+    )
+  ) +
+  scale_y_continuous(breaks = seq(from = 0, to = 100, by = 20),
+                     limits = c(0, 100)) +
+  geom_vline(aes(xintercept = level), alpha = .02, size = 6) +
+  geom_hline(yintercept = 50,
+             alpha = .2,
+             linetype = "dashed") +
+  geom_point(position = position_dodge(width = 0.5), size = 1.3) +
+  geom_errorbar(position = position_dodge(width = 0.5),
+                size = 0.25,
+                width = 0) +
+  geom_text(
+    aes(y = 100 * upper + .25),
+    hjust = "left",
+    color = "black",
+    size = 2,
+    position = position_dodge(width = .5)
+  ) +
+  coord_flip() +
   scale_color_manual(values = palette_partisan,
                      breaks = c("Republican", "Independent", "Democrat")) +
-  labs(title = "B. AMCEs by respondents' party affiliation",
-       subtitle = "Dependent variable: Choice to remove posts",
-       x = "Effect on probability to remove")
+  facet_grid(accuracy ~ factor(
+    var,
+    levels = c(
+      "Choice:\nDo nothing vs. remove posts",
+      "Dichotomized rating:\nDo nothing or issue a warning vs.\ntemporarily or indefinitely suspend account"
+    )
+  ), scales = "free") +
+  labs(title = "B. Subset analysis: Choices by respondents with accurate and inaccurate or uncertain beliefs by party",
+       y = "Proportion of choices to remove posts or suspend account (%)",
+       x = "")
+mm_plot_party
 
-# amces_party_ch_table <- head(amces_party_ch[c("BY","feature",
-#                                     "level",
-#                                     "estimate",
-#                                     "std.error",
-#                                     "lower",
-#                                     "upper")], 24L)
-# xtable(amces_party_ch_table)
-
-legend_1 <- get_legend(
-  mm_party_choice +
-    guides(color = guide_legend(nrow = 1)) +
-    theme(legend.position = "bottom", legend.title = element_blank())
-)
-
-
-text <-
-  "Subset conjoint analysis: Cases evaluated by respondents with accurate beliefs."
-tgrob <- text_grob(text, size = 14)
-# Draw the text
-plot_0 <-
-  as_ggplot(tgrob)  + theme(plot.margin = margin(0, 1, 0, 1, "cm"))
-
-all_party_choice <-
-  plot_grid(mm_party_choice, amces_party_choice, rel_widths = c(1, 1))
-
-
-all_party_choice <-
+mm_plot_all <-
   plot_grid(
-    plot_0,
-    all_party_choice,
-    legend_1,
+    mm_plot,
+    mm_plot_party,
     ncol = 1,
-    rel_heights = c(0.05, 1, 0.05),
-    scale = c(.9, 1, .9)
+    rel_heights = c(0.6, 1),
+    scale = c(0.98, .98)
   )
 
-
-
 ggsave(
-  filename = here("figs/fig4_choice_sub.png"),
-  plot = all_party_choice,
+  filename = here("figs/SI_subset.png"),
+  plot = mm_plot_all,
   dpi = 300,
   units = 'cm',
-  height = 28,
-  width = 36
+  height = 22,
+  width = 17.8
 )
-
-
 
 ggsave(
-  filename = here("figs/fig4_choice_sub.pdf"),
-  plot = all_party_choice,
+  filename = here("figs/SI_subset.pdf"),
+  plot = mm_plot_all,
   dpi = 300,
   units = 'cm',
-  height = 28,
-  width = 36
+  height = 22,
+  width = 17.8
 )
+
 
 
 ```
 
-
-```{r, subgroup by party (rating)}
-
-
-mm_party_rating <-
-  plot(
-    cj(
-      scenarios_sub,
-      rating ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
-      id = ~ id,
-      estimate = "mm",
-      by =  ~ party
-    ),
-    size = 3,
-    group = "party"
-  ) +
-  xlim(1, 4) +
-  geom_vline(xintercept = 2.41,
-             # size = .8,
-             color = "black",
-             linetype = 'dashed') +
-  facet_wrap( ~ feature,
-              ncol = 1L,
-              scales = "free_y",
-              shrink = FALSE) +
-  theme_apa() +
-  theme(
-    legend.position = "none",
-    strip.text.x = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.margin = unit(.05, "lines"),
-    panel.border = element_blank(),
-    strip.background = element_blank(),
-    axis.line.y = element_line("grey", size = 0.4),
-    axis.line.x = element_line("grey", size = 0.4)
-  ) +
-  theme(axis.text.y = element_text(size = 10, face = "bold")) +
-  scale_color_manual(values = palette_partisan,
-                     breaks = c("Republican", "Independent", "Democrat")) +
-  labs(title = "A. Marginal means by respondents' party affiliation",
-       subtitle = "Dependent variable: Rating to penalize account",
-       x = "Marginal mean for rating")
-
-
-
-amces_party_rating <-
-  plot(
-    cj(
-      scenarios_sub,
-      rating ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
-      by = ~ party
-    ),
-    size = 3,
-    group = "party"
-  )  +
-  xlim(-0.1, 0.55) +
-  geom_vline(xintercept = 0,
-             # size = .8,
-             color = "black",
-             linetype = 'dashed') +
-  geom_text(
-    aes(label = ifelse(
-      estimate > 0.05 | estimate < -0.05, sprintf("%0.2f", estimate), ""
-    )),
-    colour = "black",
-    size = 3,
-    position = position_nudge(y = .5)
-  ) +
-  facet_grid(feature ~ factor(BY, levels = c("Republican", "Independent", "Democrat")),
-             scales = "free_y") +
-  theme_apa() +
-  theme(
-    legend.position = "none",
-    # strip.text.x = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.margin = unit(.05, "lines"),
-    panel.border = element_blank(),
-    strip.background = element_blank(),
-    axis.line.y = element_line("grey", size = 0.4),
-    axis.line.x = element_line("grey", size = 0.4),
-    axis.ticks = element_blank(),
-    axis.text.y = element_blank(),
-    strip.text.y = element_blank()
-  ) +
-  scale_color_manual(values = palette_partisan,
-                     breaks = c("Republican", "Independent", "Democrat")) +
-  labs(title = "B. AMCEs by respondents' party affiliation",
-       subtitle = "Dependent variable: Rating to penalize account",
-       x = "Effect on rating")
-
-
-text <-
-  "Subset conjoint analysis: Cases evaluated by respondents with accurate beliefs."
-tgrob <- text_grob(text, size = 14)
-# Draw the text
-plot_0 <-
-  as_ggplot(tgrob)  + theme(plot.margin = margin(0, 1, 0, 1, "cm"))
-
-all_party_rating <-
-  plot_grid(mm_party_rating, amces_party_rating, rel_widths = c(1, 1))
-
-
-all_party_rating <-
-  plot_grid(
-    plot_0,
-    all_party_rating,
-    legend_1,
-    ncol = 1,
-    rel_heights = c(0.05, 1, 0.05),
-    scale = c(.9, 1, .9)
-  )
-
-ggsave(
-  filename = here("figs/fig4_rating_sub.png"),
-  plot = all_party_rating,
-  dpi = 300,
-  units = 'cm',
-  height = 28,
-  width = 36
-)
-
-
-ggsave(
-  filename = here("figs/fig4_rating_sub.pdf"),
-  plot = all_party_rating,
-  dpi = 300,
-  units = 'cm',
-  height = 28,
-  width = 36
-)
-
-
-```
-
-Proportions figure (Fig.2_sub)
-
-```{r, figure 2 subset}
-
-
-fig1_palette  <- c("#aabdcd",  "#fa654a", "#76A08A", "#FDDDA4")
-# teh other gray "#ccd5dd"
-#without green
-
-fig1_palette2  <- c("#aabdcd",   "#FDDDA4", "#fb9380", "#e15a42")
-
-sum_all <-
-  scenarios_sub %>% dplyr::select(id, choice, rating, scenario, party) %>%
-  mutate(choice = factor(
-    choice,
-    levels = c("0", "1"),
-    labels = c("Do nothing", "Remove")
-  ))  %>%
-  mutate(rating = factor(
-    rating,
-    levels = c(4, 3, 2, 1),
-    labels = c(
-      "Indefinitely\nsuspend",
-      "Temporarily\nsuspend",
-      "Issue\na warning",
-      "Do nothing"
-    )
-  )) %>%
-  mutate(scenario = factor(
-    scenario,
-    levels = c(
-      "Scenario 1: Election denial",
-      "Scenario 2: Anti-vaccination",
-      "Scenario 3: Holocaust denial",
-      "Scenario 4: Climate change denial"
-    ),
-    labels = c(
-      "Election denial",
-      "Anti-vaccination",
-      "Holocaust denial",
-      "Climate change denial"
-    )
-  ))
-
-sum_all_choice <- sum_all %>%
-  group_by(choice, scenario) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  group_by(scenario) %>%
-  mutate(N = sum(n),
-         prop = n / N,
-         perc = fnc_perc2(prop)) %>%
-  mutate(side = ifelse(str_detect(choice, "nothing"), "left", "right"))
-
-#for N of profiles by party
-sum_all_subx1 <-
-  scenarios_sub %>% dplyr::select(id, scenario, party) %>%
-  group_by(party) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  # group_by(party) %>%
-  mutate(N = sum(n),
-         prop = n / N,
-         perc = fnc_perc2(prop))
-
-# find numbers for right side
-sum_all_choice_right <- sum_all_choice %>%
-  filter(side == "right")
-
-# find numbers for left side
-sum_all_choice_left <- sum_all_choice %>%
-  filter(side == "left")
-
-
-# find side totals
-
-
-fig_choice <- ggplot() +
-  scale_x_discrete("") +
-  scale_y_continuous("",
-                     guide = NULL,
-                     limits = c(NA,+110)) +
-  geom_bar(
-    data = sum_all_choice_right,
-    aes(
-      x = fct_rev(scenario),
-      y = perc,
-      fill = choice
-    ),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = sum_all_choice_right,
-    aes(
-      x = scenario,
-      y = perc,
-      label = perc,
-      group = choice
-    ),
-    size = 4,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_bar(
-    data = sum_all_choice_left,
-    aes(
-      x = fct_rev(scenario),
-      y = -perc,
-      fill = choice
-    ),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = sum_all_choice_left,
-    aes(
-      x = scenario,
-      y = -perc,
-      label = perc,
-      group = choice
-    ),
-    size = 4,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_hline(yintercept = 0) +
-  coord_flip() +
-  theme(panel.grid.major = element_blank()) +
-  theme(
-    legend.position = "bottom",
-    legend.title = element_blank(),
-    legend.justification = "left",
-    legend.key.height = unit(0.6, 'cm'),
-    legend.key.width = unit(0.6, 'cm')
-  ) +
-  theme(axis.text.y = element_text(face = "bold")) +
-  scale_fill_manual(values = fig1_palette) +
-  labs(title = "A. Choices to remove posts by misinformation topic")
-
-
-
-sum_all_rating <- sum_all %>%
-  group_by(rating, scenario) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  group_by(scenario) %>%
-  mutate(N = sum(n),
-         prop = n / N,
-         perc = fnc_perc2(prop)) %>%
-  mutate(side = ifelse(str_detect(rating, "nothing"), "left", "right"))
-
-
-
-sum_all_rating_right <- sum_all_rating %>%
-  filter(side == "right")
-
-sum_all_rating_left <- sum_all_rating %>%
-  filter(side == "left")
-
-
-
-
-
-fig_rating <- ggplot() +
-  scale_x_discrete("") +
-  scale_y_continuous("",
-                     guide = NULL,
-                     limits = c(NA,+110)) +
-  geom_bar(
-    data = sum_all_rating_right,
-    aes(
-      x = fct_rev(scenario),
-      y = perc,
-      fill = rating
-    ),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = sum_all_rating_right,
-    aes(
-      x = scenario,
-      y = perc,
-      label = perc,
-      group = rating
-    ),
-    size = 4,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_bar(
-    data = sum_all_rating_left,
-    aes(
-      x = fct_rev(scenario),
-      y = -perc,
-      fill = rating
-    ),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = sum_all_rating_left,
-    aes(
-      x = scenario,
-      y = -perc,
-      label = perc,
-      group = rating
-    ),
-    size = 4,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_hline(yintercept = 0) +
-  coord_flip() +
-  theme(panel.grid.major = element_blank()) +
-  theme(
-    legend.position = "bottom",
-    legend.title = element_blank(),
-    legend.justification = "left",
-    legend.key.height = unit(0.6, 'cm'),
-    legend.key.width = unit(0.6, 'cm')
-  ) +
-  guides(color = guide_legend(nrow = 1)) +
-  scale_fill_manual(
-    values = fig1_palette2,
-    breaks = c(
-      "Do nothing",
-      "Issue\na warning",
-      "Temporarily\nsuspend",
-      "Indefinitely\nsuspend"
-    )
-  ) +
-  theme(axis.text.y = element_text(face = "bold")) +
-  labs(title = "C. Choices to penalize account by misinformation topic")
-
-
-
-
-party_choice <- sum_all %>%
-  group_by(choice, scenario, party) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  group_by(scenario, party) %>%
-  mutate(N = sum(n),
-         prop = n / N,
-         perc = fnc_perc2(prop)) %>%
-  mutate(side = ifelse(str_detect(choice, "nothing"), "left", "right")) %>%
-  mutate(scenario = factor(
-    scenario,
-    levels = c(
-      "Election denial",
-      "Anti-vaccination",
-      "Holocaust denial",
-      "Climate change denial"
-    ),
-    labels = c("Election", "Vaccination", "Holocaust", "Climate")
-  ))
-
-
-# find numbers for right side
-party_choice_right <- party_choice %>%
-  filter(side == "right")
-
-# find numbers for left side
-party_choice_left <- party_choice %>%
-  filter(side == "left")
-
-fig_party_choice <- ggplot() +
-  scale_x_discrete("") +
-  scale_y_continuous("",
-                     guide = NULL,
-                     limits = c(NA,+110)) +
-  geom_bar(
-    data = party_choice_right,
-    aes(x = scenario,
-        y = perc,
-        fill = choice),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = party_choice_right,
-    aes(
-      x = scenario,
-      y = perc,
-      label = perc,
-      group = choice
-    ),
-    size = 3,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_bar(
-    data = party_choice_left,
-    aes(x = scenario,
-        y = -perc,
-        fill = choice),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = party_choice_left,
-    aes(
-      x = scenario,
-      y = -perc,
-      label = perc,
-      group = choice
-    ),
-    size = 3,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_hline(yintercept = 0) +
-  # coord_flip() +
-  guides(fill = guide_legend(reverse = FALSE)) +
-  # theme_igray() +
-  theme(panel.grid.major = element_blank()) +
-  theme(legend.position = "none") +
-  facet_wrap( ~ party) +
-  theme(axis.text.x = element_text(
-    angle = 90,
-    vjust = 0.5,
-    hjust = 1
-  )) +
-  scale_fill_manual(values = fig1_palette) +
-  theme(axis.text.x = element_text(face = "bold")) +
-  labs(title = "B. Choices to remove posts by topic and respondents' party affiliation")
-
-
-
-party_rating <- sum_all %>%
-  group_by(rating, scenario, party) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  group_by(scenario, party) %>%
-  mutate(N = sum(n),
-         prop = n / N,
-         perc = fnc_perc2(prop)) %>%
-  mutate(side = ifelse(str_detect(rating, "nothing"), "left", "right")) %>%
-  mutate(scenario = factor(
-    scenario,
-    levels = c(
-      "Election denial",
-      "Anti-vaccination",
-      "Holocaust denial",
-      "Climate change denial"
-    ),
-    labels = c("Election", "Vaccination", "Holocaust", "Climate")
-  ))
-
-
-# find numbers for right side
-party_rating_right <- party_rating %>%
-  filter(side == "right")
-
-# find numbers for left side
-party_rating_left <- party_rating %>%
-  filter(side == "left")
-
-fig_party_rating <- ggplot() +
-  scale_x_discrete("") +
-  scale_y_continuous("",
-                     guide = NULL,
-                     limits = c(NA,+110)) +
-  geom_bar(
-    data = party_rating_right,
-    aes(x = scenario,
-        y = perc,
-        fill = rating),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = party_rating_right,
-    aes(
-      x = scenario,
-      y = perc,
-      label = perc,
-      group = rating
-    ),
-    size = 3,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_bar(
-    data = party_rating_left,
-    aes(x = scenario,
-        y = -perc,
-        fill = rating),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = party_rating_left,
-    aes(
-      x = scenario,
-      y = -perc,
-      label = perc,
-      group = rating
-    ),
-    size = 3,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_hline(yintercept = 0) +
-  # coord_flip() +
-  guides(fill = guide_legend(reverse = FALSE)) +
-  # theme_igray() +
-  theme(panel.grid.major = element_blank()) +
-  theme(legend.position = "none") +
-  facet_wrap( ~ party) +
-  theme(axis.text.x = element_text(
-    angle = 90,
-    vjust = 0.5,
-    hjust = 1
-  )) +
-  scale_fill_manual(values = fig1_palette2) +
-  theme(axis.text.x = element_text(face = "bold")) +
-  labs(title = "D. Choices to penalize account by topic and respondents' party affiliation")
-
-
-text <-
-  "Subset analysis: Cases evaluated by respondents with accurate beliefs."
-tgrob <- text_grob(text, size = 12, just = "left",)
-# Draw the text
-plot_0 <-
-  as_ggplot(tgrob)  + theme(plot.margin = margin(0, 1, 0, 1, "cm"))
-
-
-fig2_sub_1 <-
-  plot_grid(
-    fig_choice,
-    fig_party_choice,
-    fig_rating,
-    fig_party_rating,
-    ncol = 2,
-    nrow = 2,
-    scale = c(.98, .98, .98, .98)
-  )
-
-fig2_sub <-
-  plot_grid(plot_0,
-            fig2_sub_1,
-            ncol = 1,
-            rel_heights = c(0.1, 1))
-fig2_sub
-
-
-
-ggsave(
-  filename = here("figs/figure_2sub.png"),
-  plot = fig2_sub,
-  dpi = 300,
-  units = 'cm',
-  height = 24,
-  width = 31
-)
-
-
-ggsave(
-  filename = here("figs/figure_2sub.pdf"),
-  plot = fig2_sub,
-  dpi = 300,
-  units = 'cm',
-  height = 24,
-  width = 31
-)
-
-```
-
-Believers subset analyses
-
-```{r, figure 2 subset}
-
-fig1_palette  <- c("#aabdcd",  "#fa654a", "#76A08A", "#FDDDA4")
-
-fig1_palette2  <- c("#aabdcd",   "#FDDDA4", "#fb9380", "#e15a42")
-
-sum_all <-
-  scenarios_sub_x %>% dplyr::select(id, choice, rating, scenario, party) %>%
-  mutate(choice = factor(
-    choice,
-    levels = c("0", "1"),
-    labels = c("Do nothing", "Remove")
-  ))  %>%
-  mutate(rating = factor(
-    rating,
-    levels = c(4, 3, 2, 1),
-    labels = c(
-      "Indefinitely\nsuspend",
-      "Temporarily\nsuspend",
-      "Issue\na warning",
-      "Do nothing"
-    )
-  )) %>%
-  mutate(scenario = factor(
-    scenario,
-    levels = c(
-      "Scenario 1: Election denial",
-      "Scenario 2: Anti-vaccination",
-      "Scenario 3: Holocaust denial",
-      "Scenario 4: Climate change denial"
-    ),
-    labels = c(
-      "Election denial",
-      "Anti-vaccination",
-      "Holocaust denial",
-      "Climate change denial"
-    )
-  ))
-
-sum_all_choice <- sum_all %>%
-  group_by(choice, scenario) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  group_by(scenario) %>%
-  mutate(N = sum(n),
-         prop = n / N,
-         perc = fnc_perc2(prop)) %>%
-  mutate(side = ifelse(str_detect(choice, "nothing"), "left", "right"))
-
-#for N of profiles by party
-sum_all_subx2 <-
-  scenarios_sub_x %>% dplyr::select(id, scenario, party) %>%
-  group_by(party) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  # group_by(party) %>%
-  mutate(N = sum(n),
-         prop = n / N,
-         perc = fnc_perc2(prop))
-
-# find numbers for right side
-sum_all_choice_right <- sum_all_choice %>%
-  filter(side == "right")
-
-# find numbers for left side
-sum_all_choice_left <- sum_all_choice %>%
-  filter(side == "left")
-
-
-# find side totals
-
-
-fig_choice <- ggplot() +
-  scale_x_discrete("") +
-  scale_y_continuous("",
-                     guide = NULL,
-                     limits = c(NA,+110)) +
-  geom_bar(
-    data = sum_all_choice_right,
-    aes(
-      x = fct_rev(scenario),
-      y = perc,
-      fill = choice
-    ),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = sum_all_choice_right,
-    aes(
-      x = scenario,
-      y = perc,
-      label = perc,
-      group = choice
-    ),
-    size = 4,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_bar(
-    data = sum_all_choice_left,
-    aes(
-      x = fct_rev(scenario),
-      y = -perc,
-      fill = choice
-    ),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = sum_all_choice_left,
-    aes(
-      x = scenario,
-      y = -perc,
-      label = perc,
-      group = choice
-    ),
-    size = 4,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_hline(yintercept = 0) +
-  coord_flip() +
-  guides(fill = guide_legend(reverse = FALSE)) +
-  # theme_igray() +
-  theme(panel.grid.major = element_blank()) +
-  theme(
-    legend.position = "bottom",
-    legend.title = element_blank(),
-    legend.justification = "left",
-    legend.key.height = unit(0.6, 'cm'),
-    legend.key.width = unit(0.6, 'cm')
-  ) +
-  theme(axis.text.y = element_text(face = "bold")) +
-  scale_fill_manual(values = fig1_palette) +
-  labs(title = "A. Choices to remove the posts by misinformation topic")
-
-
-
-sum_all_rating <- sum_all %>%
-  group_by(rating, scenario) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  group_by(scenario) %>%
-  mutate(N = sum(n),
-         prop = n / N,
-         perc = fnc_perc2(prop)) %>%
-  mutate(side = ifelse(str_detect(rating, "nothing"), "left", "right"))
-
-
-
-sum_all_rating_right <- sum_all_rating %>%
-  filter(side == "right")
-
-sum_all_rating_left <- sum_all_rating %>%
-  filter(side == "left")
-
-
-
-
-
-fig_rating <- ggplot() +
-  scale_x_discrete("") +
-  scale_y_continuous("",
-                     guide = NULL,
-                     limits = c(NA,+110)) +
-  geom_bar(
-    data = sum_all_rating_right,
-    aes(
-      x = fct_rev(scenario),
-      y = perc,
-      fill = rating
-    ),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = sum_all_rating_right,
-    aes(
-      x = scenario,
-      y = perc,
-      label = perc,
-      group = rating
-    ),
-    size = 4,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_bar(
-    data = sum_all_rating_left,
-    aes(
-      x = fct_rev(scenario),
-      y = -perc,
-      fill = rating
-    ),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = sum_all_rating_left,
-    aes(
-      x = scenario,
-      y = -perc,
-      label = perc,
-      group = rating
-    ),
-    size = 4,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_hline(yintercept = 0) +
-  coord_flip() +
-  theme(panel.grid.major = element_blank()) +
-  theme(
-    legend.position = "bottom",
-    legend.title = element_blank(),
-    legend.justification = "left",
-    legend.key.height = unit(0.6, 'cm'),
-    legend.key.width = unit(0.6, 'cm')
-  ) +
-  scale_fill_manual(
-    values = fig1_palette2,
-    breaks = c(
-      "Do nothing",
-      "Issue\na warning",
-      "Temporarily\nsuspend",
-      "Indefinitely\nsuspend"
-    )
-  ) +
-  theme(axis.text.y = element_text(face = "bold")) +
-  labs(title = "C. Choices to penalize accounts by misinformation topic")
-
-
-
-
-party_choice <- sum_all %>%
-  group_by(choice, scenario, party) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  group_by(scenario, party) %>%
-  mutate(N = sum(n),
-         prop = n / N,
-         perc = fnc_perc2(prop)) %>%
-  mutate(side = ifelse(str_detect(choice, "nothing"), "left", "right")) %>%
-  mutate(scenario = factor(
-    scenario,
-    levels = c(
-      "Election denial",
-      "Anti-vaccination",
-      "Holocaust denial",
-      "Climate change denial"
-    ),
-    labels = c("Election", "Vaccination", "Holocaust", "Climate")
-  ))
-
-
-# find numbers for right side
-party_choice_right <- party_choice %>%
-  filter(side == "right")
-
-# find numbers for left side
-party_choice_left <- party_choice %>%
-  filter(side == "left")
-
-fig_party_choice <- ggplot() +
-  scale_x_discrete("") +
-  scale_y_continuous("",
-                     guide = NULL,
-                     limits = c(NA,+110)) +
-  geom_bar(
-    data = party_choice_right,
-    aes(x = scenario,
-        y = perc,
-        fill = choice),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = party_choice_right,
-    aes(
-      x = scenario,
-      y = perc,
-      label = perc,
-      group = choice
-    ),
-    size = 3,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_bar(
-    data = party_choice_left,
-    aes(x = scenario,
-        y = -perc,
-        fill = choice),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = party_choice_left,
-    aes(
-      x = scenario,
-      y = -perc,
-      label = perc,
-      group = choice
-    ),
-    size = 3,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_hline(yintercept = 0) +
-  # coord_flip() +
-  guides(fill = guide_legend(reverse = FALSE, ncol = 1)) +
-  # theme_igray() +
-  theme(panel.grid.major = element_blank()) +
-  theme(legend.position = "none") +
-  facet_wrap( ~ party) +
-  theme(axis.text.x = element_text(
-    angle = 90,
-    vjust = 0.5,
-    hjust = 1
-  )) +
-  scale_fill_manual(values = fig1_palette) +
-  theme(axis.text.x = element_text(face = "bold")) +
-  labs(title = "B. Choices to remove posts by topic and respondents' party affiliation")
-
-
-
-party_rating <- sum_all %>%
-  group_by(rating, scenario, party) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  group_by(scenario, party) %>%
-  mutate(N = sum(n),
-         prop = n / N,
-         perc = fnc_perc2(prop)) %>%
-  mutate(side = ifelse(str_detect(rating, "nothing"), "left", "right")) %>%
-  mutate(scenario = factor(
-    scenario,
-    levels = c(
-      "Election denial",
-      "Anti-vaccination",
-      "Holocaust denial",
-      "Climate change denial"
-    ),
-    labels = c("Election", "Vaccination", "Holocaust", "Climate")
-  ))
-
-
-# find numbers for right side
-party_rating_right <- party_rating %>%
-  filter(side == "right")
-
-# find numbers for left side
-party_rating_left <- party_rating %>%
-  filter(side == "left")
-
-fig_party_rating <- ggplot() +
-  scale_x_discrete("") +
-  scale_y_continuous("",
-                     guide = NULL,
-                     limits = c(NA,+110)) +
-  geom_bar(
-    data = party_rating_right,
-    aes(x = scenario,
-        y = perc,
-        fill = rating),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = party_rating_right,
-    aes(
-      x = scenario,
-      y = perc,
-      label = perc,
-      group = rating
-    ),
-    size = 3,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_bar(
-    data = party_rating_left,
-    aes(x = scenario,
-        y = -perc,
-        fill = rating),
-    width = .8,
-    position = "stack",
-    stat = "identity"
-  ) +
-  geom_text(
-    data = party_rating_left,
-    aes(
-      x = scenario,
-      y = -perc,
-      label = perc,
-      group = rating
-    ),
-    size = 3,
-    color = "black",
-    fontface = "bold",
-    position = position_stack(vjust = 0.5)
-  ) +
-  geom_hline(yintercept = 0) +
-  # coord_flip() +
-  guides(fill = guide_legend(reverse = FALSE, ncol = 1)) +
-  # theme_igray() +
-  theme(panel.grid.major = element_blank()) +
-  theme(legend.position = "none") +
-  facet_wrap( ~ party) +
-  theme(axis.text.x = element_text(
-    angle = 90,
-    vjust = 0.5,
-    hjust = 1
-  )) +
-  scale_fill_manual(values = fig1_palette2) +
-  theme(axis.text.x = element_text(face = "bold")) +
-  labs(title = "D. Choices to penalize accounts by topic and respondents' party affiliation")
-
-
-# Create a text grob
-text <-
-  "Subset analysis: Cases evaluated by respondents with inaccurate beliefs."
-tgrob <- text_grob(text, size = 12, just = "left",)
-# Draw the text
-plot_0 <-
-  as_ggplot(tgrob)  + theme(plot.margin = margin(0, 1, 0, 1, "cm"))
-
-
-
-
-
-fig2_sub_2 <-
-  plot_grid(
-    fig_choice,
-    fig_party_choice,
-    fig_rating,
-    fig_party_rating,
-    ncol = 2,
-    nrow = 2,
-    scale = c(.98, .98, .98, .98)
-  )
-
-fig2_sub_x <-
-  plot_grid(plot_0,
-            fig2_sub_2,
-            ncol = 1,
-            rel_heights = c(0.1, 1))
-fig2_sub_x
-
-
-ggsave(
-  filename = here("figs/figure_2sub_x.png"),
-  plot = fig2_sub_x,
-  dpi = 300,
-  units = 'cm',
-  height = 24,
-  width = 31
-)
-
-
-ggsave(
-  filename = here("figs/figure_2sub_x.pdf"),
-  plot = fig2_sub_x,
-  dpi = 300,
-  units = 'cm',
-  height = 24,
-  width = 31
-)
-
-```
-
-
-
-```{r}
-
-demo <-
-  scenarios %>% dplyr::select(id, gender, age, education, ethnicity, party, ideology) %>%
-  mutate(
-    agegroup = case_when(
-      age >= 18  & age <= 24 ~ '1',
-      age >= 25  &
-        age <= 34 ~ '2',
-      age >= 35  &
-        age <= 44 ~ '3',
-      age >= 45  & age <= 54 ~ '4',
-      age >= 55  & age <= 64 ~ '5',
-      age >= 65  ~ '6',
-    )
-  ) %>%
-  mutate(agegroup = factor(
-    agegroup,
-    levels = c(1, 2, 3, 4, 5, 6),
-    labels = c(
-      "Age (18-24)",
-      "Age (25-34)",
-      "Age (35-44)",
-      "Age (45-54)",
-      "Age (55-64)",
-      "Age (65+)"
-    )
-  )) %>%
-  dplyr::select(-age) %>%
-  pivot_longer(
-    names_to = "measures",
-    values_to = "question",
-    cols = c(gender, education, ethnicity, agegroup,  party, ideology)
-  ) %>%
-  group_by(measures, question) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  group_by(measures) %>%
-  mutate(
-    N = sum(n),
-    prop = n / N,
-    value = round(100 * prop, digits = 1)
-  ) %>%
-  dplyr::select(-prop,-N) %>%
-  mutate(measures = factor(
-    measures,
-    levels = c(
-      "gender",
-      "agegroup",
-      "education",
-      "ethnicity",
-      "party",
-      "ideology"
-    ),
-    labels = c(
-      "Gender",
-      "Age group",
-      "Education",
-      "Ethnicity",
-      "Political party",
-      "Political ideology"
-    )
-  )) %>%
-  drop_na() %>%
-  arrange(factor(
-    measures,
-    levels = c(
-      "Gender",
-      "Age group",
-      "Education",
-      "Ethnicity",
-      "Political party",
-      "Political ideology"
-    )
-  ))
-
-# sample <- scenarios_sub %>%  dplyr::select(id) %>%
-#   summarise(N_x = n()) %>%
-#   ungroup() %>%
-#   #     summarise(N = n())
-
-
-table_demo <- demo %>%
-  kbl() %>%
-  kable_paper("striped", full_width = F, position = "left") %>%
-  column_spec(
-    2,
-    bold = T,
-    color = "black",
-    background = "#e5e5e5",
-    width = "10em"
-  )
-# %>%
-# save_kable(file = here("figs/table_demo.png"), zoom = 1.5)
-
-table_demo
-
-
-```
-
-```{r}
-
-demo_sub <-
-  scenarios_sub %>% dplyr::select(id, gender, age, education, ethnicity, party, ideology) %>%
-  mutate(
-    agegroup = case_when(
-      age >= 18  & age <= 24 ~ '1',
-      age >= 25  &
-        age <= 34 ~ '2',
-      age >= 35  &
-        age <= 44 ~ '3',
-      age >= 45  & age <= 54 ~ '4',
-      age >= 55  & age <= 64 ~ '5',
-      age >= 65  ~ '6',
-    )
-  ) %>%
-  mutate(agegroup = factor(
-    agegroup,
-    levels = c(1, 2, 3, 4, 5, 6),
-    labels = c(
-      "Age (18-24)",
-      "Age (25-34)",
-      "Age (35-44)",
-      "Age (45-54)",
-      "Age (55-64)",
-      "Age (65+)"
-    )
-  )) %>%
-  dplyr::select(-age) %>%
-  pivot_longer(
-    names_to = "measures",
-    values_to = "question",
-    cols = c(gender, education, ethnicity, agegroup,  party, ideology)
-  ) %>%
-  group_by(measures, question) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  group_by(measures) %>%
-  mutate(
-    N = sum(n),
-    prop = n / N,
-    value = round(100 * prop, digits = 1)
-  ) %>%
-  dplyr::select(-prop,-N) %>%
-  mutate(measures = factor(
-    measures,
-    levels = c(
-      "gender",
-      "agegroup",
-      "education",
-      "ethnicity",
-      "party",
-      "ideology"
-    ),
-    labels = c(
-      "Gender",
-      "Age group",
-      "Education",
-      "Ethnicity",
-      "Political party",
-      "Political ideology"
-    )
-  )) %>%
-  drop_na() %>%
-  arrange(factor(
-    measures,
-    levels = c(
-      "Gender",
-      "Age group",
-      "Education",
-      "Ethnicity",
-      "Political party",
-      "Political ideology"
-    )
-  ))
-
-# sample <- scenarios_sub %>%  dplyr::select(id) %>%
-#   summarise(N_x = n()) %>%
-#   ungroup() %>%
-#   #     summarise(N = n())
-
-
-table_demo_sub <- demo_sub %>%
-  kbl() %>%
-  kable_paper("striped", full_width = F, position = "left") %>%
-  column_spec(
-    2,
-    bold = T,
-    color = "black",
-    background = "#e5e5e5",
-    width = "10em"
-  )
-# %>%
-# save_kable(file = here("figs/table_demo.png"), zoom = 1.5)
-
-table_demo_sub
-
-```
-
-
-```{r}
-
-demo_sub_x <-
-  scenarios_sub_x %>% dplyr::select(id, gender, age, education, ethnicity, party, ideology) %>%
-  mutate(
-    agegroup = case_when(
-      age >= 18  & age <= 24 ~ '1',
-      age >= 25  &
-        age <= 34 ~ '2',
-      age >= 35  &
-        age <= 44 ~ '3',
-      age >= 45  & age <= 54 ~ '4',
-      age >= 55  & age <= 64 ~ '5',
-      age >= 65  ~ '6',
-    )
-  ) %>%
-  mutate(agegroup = factor(
-    agegroup,
-    levels = c(1, 2, 3, 4, 5, 6),
-    labels = c(
-      "Age (18-24)",
-      "Age (25-34)",
-      "Age (35-44)",
-      "Age (45-54)",
-      "Age (55-64)",
-      "Age (65+)"
-    )
-  )) %>%
-  dplyr::select(-age) %>%
-  pivot_longer(
-    names_to = "measures",
-    values_to = "question",
-    cols = c(gender, education, ethnicity, agegroup,  party, ideology)
-  ) %>%
-  group_by(measures, question) %>%
-  summarise(n = n(), .groups = "keep") %>%
-  ungroup() %>%
-  group_by(measures) %>%
-  mutate(
-    N = sum(n),
-    prop = n / N,
-    value = round(100 * prop, digits = 1)
-  ) %>%
-  dplyr::select(-prop,-N) %>%
-  mutate(measures = factor(
-    measures,
-    levels = c(
-      "gender",
-      "agegroup",
-      "education",
-      "ethnicity",
-      "party",
-      "ideology"
-    ),
-    labels = c(
-      "Gender",
-      "Age group",
-      "Education",
-      "Ethnicity",
-      "Political party",
-      "Political ideology"
-    )
-  )) %>%
-  drop_na() %>%
-  arrange(factor(
-    measures,
-    levels = c(
-      "Gender",
-      "Age group",
-      "Education",
-      "Ethnicity",
-      "Political party",
-      "Political ideology"
-    )
-  ))
-
-# sample <- scenarios_sub %>%  dplyr::select(id) %>%
-#   summarise(N_x = n()) %>%
-#   ungroup() %>%
-#   #     summarise(N = n())
-
-
-table_demo_sub_x <- demo_sub_x %>%
-  kbl() %>%
-  kable_paper("striped", full_width = F, position = "left") %>%
-  column_spec(
-    2,
-    bold = T,
-    color = "black",
-    background = "#e5e5e5",
-    width = "10em"
-  )
-# %>%
-# save_kable(file = here("figs/table_demo.png"), zoom = 1.5)
-
-table_demo_sub_x
-
-
-```

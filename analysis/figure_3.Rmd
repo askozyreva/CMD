@@ -1,0 +1,632 @@
+---
+title: "Content Moderation Dilemmas Online: main text figures and all conjoint figures"
+
+
+---
+
+```{r setup, include=FALSE}
+
+
+if(!require("pacman")) install.packages("pacman"); library(pacman)
+p_load("tidyverse", "here", "readr", "jtools", "sjlabelled", "ggplot2", "kableExtra", "cregg", "stringr", "cowplot", "glue", "xtable")
+
+
+source(here('code/functions.R'))
+
+options(scipen = 999)
+
+
+```
+
+```{r load and filter data, include=FALSE, echo=FALSE}
+
+scenarios <- import(here('data/scenarios.RData'))
+
+```
+
+
+
+```{r theming, cache = FALSE}
+
+theme_update(
+  panel.spacing.x = unit(0.01, "cm"),
+  panel.spacing.y = unit(0.1, "cm"),
+  axis.text.y = element_blank(),
+  axis.ticks.y = element_blank(),
+  axis.line.y = element_blank(),
+  axis.text.x = element_text(size = 5),
+  axis.title.x = element_text(size = 6),
+  legend.position = "none",
+  panel.background = element_rect(fill = 'white', colour = 'white'),
+  strip.background = element_rect(fill = 'white', colour = 'white'),
+  strip.text = element_text(size = 6, face = "bold"),
+  plot.title = element_text(size = 8, face = "bold"),
+  plot.title.position = "plot",
+  panel.border = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  # axis.line.y = element_line("grey", size = 0.2),
+  axis.line.x = element_line("grey", size = 0.2)
+)
+
+
+
+```
+
+```{r}
+# colnames(scenarios)
+scenarios <- scenarios %>%
+  mutate(level_4 = factor(
+    level_4,
+    levels = c(
+      "Climate change denial",
+      "Holocaust denial",
+      "Anti-vaccination",
+      "Election denial"
+    ),
+    labels = c(
+      "Climate denial",
+      "Holocaust denial",
+      "Anti-vaccination",
+      "Election denial"
+    )
+  ))
+
+attr(scenarios$level_4, "label") <- "Misinformation topic"
+```
+
+# Conjoint analysis (across scenarios)
+
+
+```{r fig.width = 8, fig.height= 8, echo=TRUE, warning = FALSE, cj main}
+
+amces_ch <-
+  cj(
+    scenarios,
+    choice ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "amce"
+  )
+amces_r <-
+  cj(
+    scenarios,
+    rating ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "amce"
+  )
+
+mm_ch <-
+  mm(
+    scenarios,
+    choice ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "mm"
+  )
+
+mm_r <-
+  mm(
+    scenarios,
+    rating ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "mm"
+  )
+
+mm_rating_bi <-
+  mm(
+    scenarios,
+    rating_bi ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "mm"
+  )
+
+amces_rating_bi <-
+  cj(
+    scenarios,
+    rating_bi ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "amce"
+  )
+
+
+
+amces_ch_table <- amces_ch %>%
+  select(c("feature", "level", "estimate", "std.error", "lower", "upper"))
+
+
+
+
+amces_r_table  <- amces_r %>%
+  select(c("feature", "level", "estimate", "std.error", "lower", "upper"))
+
+
+
+
+mm_ch_table <- mm_ch %>%
+  select(c("feature", "level", "estimate", "std.error", "lower", "upper"))
+
+
+
+mm_r_table  <- mm_r %>%
+  select(c("feature", "level", "estimate", "std.error", "lower", "upper"))
+
+
+mm_rating_bi_table  <- mm_rating_bi %>%
+  select(c("feature", "level", "estimate", "std.error", "lower", "upper"))
+
+
+amces_rating_bi_table <- amces_rating_bi %>%
+  select(c("feature", "level", "estimate", "std.error", "lower", "upper"))
+
+
+```
+
+```{r, enhanced dfs}
+
+
+
+
+amces_choice_enhanced <- amces_ch_table %>%
+  mutate(
+    estimate_str = format(100 * estimate, digits = 1, trim = TRUE),
+    amce_str = ifelse(estimate < 0, estimate_str, glue("+{estimate_str}")),
+    label_pe = glue("{level} ({amce_str})")
+  ) %>%
+  mutate(feature = factor(
+    feature,
+    levels = c(
+      "Misinformation topic",
+      "Severity of harms",
+      "Pattern of behavior",
+      "Information's falseness",
+      "Account",
+      "Account's partisanship",
+      "Number of followers"
+    ),
+    labels = c(
+      "Misinformation\ntopic",
+      "Severity\nof harms",
+      "Pattern\nof behavior",
+      "Level\n of falseness",
+      "Account",
+      "Account's\npartisanship",
+      "Number\nof followers"
+    )
+  ))
+
+amces_rating_enhanced <- amces_r_table %>%
+  mutate(
+    estimate_str = format(estimate, digits = 1, trim = TRUE),
+    amce_str = ifelse(estimate < 0, estimate_str, glue("+{estimate_str}")),
+    label_pe = glue("{level} ({amce_str})")
+  ) %>%
+  mutate(feature = factor(
+    feature,
+    levels = c(
+      "Misinformation topic",
+      "Severity of harms",
+      "Pattern of behavior",
+      "Information's falseness",
+      "Account",
+      "Account's partisanship",
+      "Number of followers"
+    ),
+    labels = c(
+      "Misinformation\ntopic",
+      "Severity\nof harms",
+      "Pattern\nof behavior",
+      "Level\n of falseness",
+      "Account",
+      "Account's\npartisanship",
+      "Number\nof followers"
+    )
+    
+  ))
+
+
+amces_rating_bi_enhanced <- amces_rating_bi_table %>%
+  mutate(
+    estimate_str = format(100 * estimate, digits = 1, trim = TRUE),
+    amce_str = ifelse(estimate < 0, estimate_str, glue("+{estimate_str}")),
+    label_pe = glue("{level} ({amce_str})")
+  ) %>%
+  mutate(feature = factor(
+    feature,
+    levels = c(
+      "Misinformation topic",
+      "Severity of harms",
+      "Pattern of behavior",
+      "Information's falseness",
+      "Account",
+      "Account's partisanship",
+      "Number of followers"
+    ),
+    labels = c(
+      "Misinformation\ntopic",
+      "Severity\nof harms",
+      "Pattern\nof behavior",
+      "Level\n of falseness",
+      "Account",
+      "Account's\npartisanship",
+      "Number\nof followers"
+    )
+  ))
+
+```
+
+
+```{r, severity of harms df for new figure 3}
+
+
+amces_harms_choice <-
+  cj(
+    scenarios,
+    choice ~ level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "amce",
+    by = ~ level_4
+  ) %>%
+  mutate(BY = factor(
+    BY,
+    levels = c(
+      "Climate denial",
+      "Holocaust denial",
+      "Anti-vaccination",
+      "Election denial"
+    ),
+    labels = c("Climate",
+               "Holocaust",
+               "Vaccination",
+               "Election")
+  )) %>%
+  filter (feature == "Severity of harms") %>%
+  mutate(feature = "Severity") %>%
+  mutate(feature = glue("{feature}:\n{BY}")) %>%
+  select(-c(outcome, statistic, z, p, level_4, BY))
+
+amces_harms_choice_enhanced <- amces_harms_choice %>%
+  mutate(
+    estimate_str = format(100 * estimate, digits = 1, trim = TRUE),
+    amce_str = ifelse(estimate < 0, estimate_str, glue("+{estimate_str}")),
+    label_pe = glue("{level} ({amce_str})")
+  )
+
+
+amces_new_choice <-
+  rbind(amces_choice_enhanced, amces_harms_choice_enhanced) %>%
+  mutate(method = ifelse(
+    str_detect(feature, "Severity:\n"),
+    "Severity of harms by scenario",
+    "All scenarios pooled"
+  )) %>%
+  mutate(method = as.factor(method)) %>%
+  mutate(variable = "Choice to remove posts")
+
+
+amces_harms_rating_bi <-
+  cj(
+    scenarios,
+    rating_bi ~ level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "amce",
+    by = ~ level_4
+  ) %>%
+  mutate(BY = factor(
+    BY,
+    levels = c(
+      "Climate denial",
+      "Holocaust denial",
+      "Anti-vaccination",
+      "Election denial"
+    ),
+    labels = c("Climate",
+               "Holocaust",
+               "Vaccination",
+               "Election")
+  )) %>%
+  filter (feature == "Severity of harms") %>%
+  mutate(feature = "Severity") %>%
+  mutate(feature = glue("{feature}:\n{BY}")) %>%
+  select(-c(outcome, statistic, z, p, level_4, BY))
+
+amces_harms_rating_bi_enhanced <- amces_harms_rating_bi %>%
+  mutate(
+    estimate_str = format(100 * estimate, digits = 1, trim = TRUE),
+    amce_str = ifelse(estimate < 0, estimate_str, glue("+{estimate_str}")),
+    label_pe = glue("{level} ({amce_str})")
+  )
+
+
+amces_new_rating_bi <-
+  rbind(amces_rating_bi_enhanced, amces_harms_rating_bi_enhanced) %>%
+  mutate(method = ifelse(
+    str_detect(feature, "Severity:\n"),
+    "Severity of harms by scenario",
+    "All scenarios pooled"
+  )) %>%
+  mutate(method = as.factor(method)) %>%
+  mutate(variable = "Rating to suspend account")
+
+
+
+amces_harms_rating <-
+  cj(
+    scenarios,
+    rating ~ level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "amce",
+    by = ~ level_4
+  ) %>%
+  mutate(BY = factor(
+    BY,
+    levels = c(
+      "Climate denial",
+      "Holocaust denial",
+      "Anti-vaccination",
+      "Election denial"
+    ),
+    labels = c("Climate",
+               "Holocaust",
+               "Vaccination",
+               "Election")
+  )) %>%
+  filter (feature == "Severity of harms") %>%
+  mutate(feature = "Severity") %>%
+  mutate(feature = glue("{feature}:\n{BY}")) %>%
+  select(-c(outcome, statistic, z, p, level_4, BY))
+
+amces_harms_rating_enhanced <- amces_harms_rating %>%
+  mutate(
+    estimate_str = format(100 * estimate, digits = 1, trim = TRUE),
+    amce_str = ifelse(estimate < 0, estimate_str, glue("+{estimate_str}")),
+    label_pe = glue("{level} ({amce_str})")
+  )
+
+
+amces_new_rating <-
+  rbind(amces_rating_enhanced, amces_harms_rating_enhanced) %>%
+  mutate(method = ifelse(
+    str_detect(feature, "Severity:\n"),
+    "Severity of harms by scenario",
+    "All scenarios pooled"
+  )) %>%
+  mutate(method = as.factor(method))
+
+
+
+```
+
+
+```{r, 2 column fig 3}
+
+
+fig3_new_choice_x <- amces_new_choice %>%
+  ggplot(
+    aes(
+      x = reorder(feature, desc(feature)),
+      y = 100 * estimate,
+      ymin = 100 * lower,
+      ymax = 100 * upper,
+      group = level,
+      color = method,
+      label = label_pe
+    )
+  ) +
+  facet_grid(
+    factor(
+      method,
+      levels = c("All scenarios pooled", "Severity of harms by scenario")
+    ) ~ .,
+    scales = "free_y",
+    switch = "y",
+    space = "free"
+  ) +
+  scale_y_continuous(breaks = seq(from = -2, to = 22, by = 2),
+                     limits = c(-15, 22)) +
+  geom_vline(aes(xintercept = reorder(feature, desc(feature))), alpha = .02, size = 10) +
+  geom_hline(
+    yintercept = 0,
+    alpha = .3,
+    size = 0.2,
+    linetype = "dashed"
+  ) +
+  geom_pointrange(
+    position = position_dodge(width = .9),
+    data = filter(amces_new_choice, !is.na(std.error)),
+    size = 0.05
+  ) +
+  geom_text(
+    aes(y = 100 * upper + .15),
+    hjust = "left",
+    color = "black",
+    size = 1.6,
+    position = position_dodge(width = .9),
+    data = filter(amces_new_choice, !is.na(std.error))
+  ) +
+  coord_flip() +
+  geom_text(
+    aes(label = glue("{level} vs.")),
+    data = filter(amces_new_choice, is.na(std.error)),
+    color = "black",
+    size = 1.6,
+    nudge_y = -9.1,
+    hjust = 0
+  ) +
+  geom_text(
+    aes(label = feature),
+    data = filter(amces_new_choice, is.na(std.error)),
+    color = "black",
+    size = 2,
+    fontface = "bold",
+    nudge_y = -9.5,
+    hjust = 1
+  ) +
+  scale_color_manual(values = c("#ee0000", "#e97d8c")) +
+  labs(title = "A. Content moderation preferences:\nChoice to remove posts",
+       y = "Effect on probability to remove posts (% points)",
+       x = "")
+fig3_new_choice_x
+
+
+fig3_new_rating_bi_x <- amces_new_rating_bi %>%
+  ggplot(
+    aes(
+      x = reorder(feature, desc(feature)),
+      y = 100 * estimate,
+      ymin = 100 * lower,
+      ymax = 100 * upper,
+      group = level,
+      color = method,
+      label = label_pe
+    )
+  ) +
+  facet_grid(factor(
+    method,
+    levels = c("All scenarios pooled", "Severity of harms by scenario")
+  ) ~ .,
+  scales = "free",
+  space = "free") +
+  scale_y_continuous(breaks = seq(from = -2, to = 26, by = 2),
+                     limits = c(-1.5, 28)) +
+  geom_vline(aes(xintercept = reorder(feature, desc(feature))), alpha = .02, size = 10) +
+  geom_hline(
+    yintercept = 0,
+    alpha = .3,
+    size = 0.2,
+    linetype = "dashed"
+  ) +
+  geom_pointrange(
+    position = position_dodge(width = 0.9),
+    data = filter(amces_new_rating_bi, !is.na(std.error)),
+    size = 0.05
+  ) +
+  geom_text(
+    aes(y = 100 * upper + .15),
+    hjust = "left",
+    color = "black",
+    size = 1.6,
+    position = position_dodge(width = .9),
+    data = filter(amces_new_rating_bi, !is.na(std.error))
+  ) +
+  coord_flip() +
+  theme(strip.text = element_blank()) +
+  scale_color_manual(values = c("#0077ee", "#7d9ce9")) +
+  labs(title = "B. Content moderation preferences:\nDichotomized rating to suspend account",
+       y = "Effect on probability to suspend account (% points)",
+       x = "")
+fig3_new_rating_bi_x
+
+fig3_new_x <-
+  plot_grid(
+    fig3_new_choice_x,
+    fig3_new_rating_bi_x,
+    ncol = 2,
+    nrow = 1,
+    rel_widths = c(1, 0.8)
+  )
+fig3_new_x
+
+
+ggsave(
+  filename = here("figs/figure_3.png"),
+  plot = fig3_new_x,
+  dpi = 300,
+  units = 'cm',
+  height = 14,
+  width = 17.8
+)
+ggsave(
+  filename = here("figs/figure_3.pdf"),
+  plot = fig3_new_x,
+  dpi = 300,
+  units = 'cm',
+  height = 14,
+  width = 17.8
+)
+
+
+```
+
+
+
+```{r new fig 3 SI rating}
+
+fig3_new_rating <- amces_new_rating %>%
+  ggplot(
+    aes(
+      x = reorder(feature, desc(feature)),
+      y = estimate,
+      ymin = lower,
+      ymax = upper,
+      group = level,
+      color = method,
+      label = label_pe
+    )
+  ) +
+  facet_grid(factor(
+    method,
+    levels = c("All scenarios pooled", "Severity of harms by scenario")
+  ) ~ .,
+  scales = "free_y",
+  space = "free") +
+  scale_y_continuous(breaks = seq(from = -0.1, to = 0.5, by = 0.1),
+                     limits = c(-0.3, 0.65)) +
+  geom_vline(aes(xintercept = reorder(feature, desc(feature))), alpha = .02, size = 7) +
+  geom_hline(yintercept = 0,
+             alpha = .4,
+             linetype = "dashed") +
+  geom_pointrange(
+    position = position_dodge(width = .9),
+    data = filter(amces_new_rating, !is.na(std.error)),
+    size = 0.05
+  ) +
+  coord_flip() +
+  geom_text(
+    aes(y = upper + .015),
+    hjust = "left",
+    color = "black",
+    size = 1.7,
+    position = position_dodge(width = .5),
+    data = filter(amces_new_rating, !is.na(std.error))
+  ) +
+  geom_text(
+    aes(label = glue("{level} vs.")),
+    data = filter(amces_new_rating, is.na(std.error)),
+    color = "black",
+    size = 2.2,
+    nudge_y = -0.2,
+    hjust = 0
+  ) +
+  geom_text(
+    aes(label = feature),
+    data = filter(amces_new_rating, is.na(std.error)),
+    color = "black",
+    size = 2.3,
+    fontface = "bold",
+    nudge_y = -0.22,
+    hjust = 1
+  ) +
+  scale_color_manual(values = c("#0077ee", "#7d9ce9")) +
+  labs(title = "Content moderation preferences: Rating to penalize accounts",
+       y = "Effect on rating (on a scale from 1 to 4)",
+       x = "")
+fig3_new_rating
+
+
+ggsave(
+  filename = here("figs/figure_3_SI.png"),
+  plot = fig3_new_rating,
+  dpi = 300,
+  units = 'cm',
+  height = 12,
+  width = 17.8
+)
+ggsave(
+  filename = here("figs/figure_3_SI.pdf"),
+  plot = fig3_new_rating,
+  dpi = 300,
+  units = 'cm',
+  height = 12,
+  width = 17.8
+)
+
+```

@@ -1,0 +1,1498 @@
+---
+title: "Content Moderation Dilemmas Online: main text figures and all conjoint figures"
+
+
+---
+
+```{r setup, include=FALSE}
+
+if(!require("pacman")) install.packages("pacman"); library(pacman)
+p_load("tidyverse", "here", "readr", "jtools", "sjlabelled", "ggplot2", "kableExtra", "cregg", "stringr", "cowplot", "glue", "xtable","ggsci")
+
+
+source(here('code/functions.R'))
+
+options(scipen = 999)
+
+
+
+```
+
+```{r load and filter data, include=FALSE, echo=FALSE}
+
+scenarios <- import(here('data/scenarios.RData')) %>%
+  mutate(speech_disinfo_pre = factor(
+    speech_disinfo_pre,
+    levels = c("Pro freedom of expression", "Pro preventing misinformation"),
+    labels = c("Pro-freedom of expression", "Pro-preventing misinformation")
+  ))
+
+```
+
+
+# Subgroup analyses
+
+```{r, subgroup by party (choice)}
+
+
+
+palette_partisan  <- c("#d04b4b", "#aa9cb6", "steelblue")
+
+mm_party_ch <-
+  cj(
+    scenarios,
+    choice ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "mm",
+    by =  ~ party
+  )
+
+
+amce_party_ch <-
+  cj(
+    scenarios,
+    choice ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "amce",
+    by = ~ party
+  )
+
+mm_party_choice <- mm_party_ch %>%
+  plot(size = 1,
+       group = "party",
+       vline_color = "white") +
+  scale_x_continuous(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1),
+                     limits = c(0, 1)) +
+  geom_vline(
+    xintercept = 0.5,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  facet_grid(feature  ~ .,
+             scales = "free", space = "free") +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 8, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.y = element_text(size = 6),
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 7),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.background = element_rect(
+      fill = '#fafafa',
+      size = 8,
+      colour = 'white'
+    ),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.01, "lines"),
+    axis.line.y = element_line("grey", size = 0.4),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    strip.text = element_blank()
+  ) +
+  scale_color_manual(values = palette_partisan,
+                     breaks = c("Republican", "Independent", "Democrat")) +
+  labs(title = "A. Marginal means by respondents' party",
+       # subtitle = "Dependent variable: Choice to remove posts",
+       x = "Marginal mean for decisions to remove posts")
+mm_party_choice
+
+
+amces_party_choice <-
+  plot(
+    amce_party_ch,
+    size = 1,
+    group = "party",
+    vline_color = "#fafafa"
+  )  +
+  scale_x_continuous(breaks = c(-0.1, 0, 0.1, 0.2),
+                     limits = c(-0.1, 0.3)) +
+  geom_vline(
+    xintercept = 0,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  geom_text(
+    aes(label = ifelse(
+      estimate > 0.025 |
+        estimate < -0.025,
+      sprintf("%0.2f", estimate),
+      ""
+    )),
+    colour = "black",
+    size = 1.8,
+    nudge_y = -.5
+  ) +
+  facet_grid(feature ~ factor(BY, levels = c("Republican", "Independent", "Democrat")),
+             scales = "free",
+             space = "free") +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 8, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 7),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(
+      fill = '#fafafa',
+      size = 8,
+      colour = 'white'
+    ),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.01, "lines"),
+    axis.line.y = element_line("white"),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    axis.text.y = element_blank(),
+    strip.text = element_blank()
+  ) +
+  scale_color_manual(values = palette_partisan,
+                     breaks = c("Republican", "Independent", "Democrat")) +
+  labs(title = "B. AMCEs by respondents' party",
+       # subtitle = "Dependent variable: Choice to remove posts",
+       x = "Effect on probability to remove posts")
+amces_party_choice
+
+legend_1 <- get_legend(
+  mm_party_choice +
+    guides(color = guide_legend(nrow = 1)) +
+    theme(
+      legend.position = "bottom",
+      legend.title = element_blank(),
+      legend.text = element_text(size = 6)
+    )
+)
+
+
+all_party_choice <-
+  plot_grid(
+    mm_party_choice,
+    amces_party_choice,
+    rel_widths = c(0.9, 1),
+    scale = c(0.98, .98)
+  )
+
+
+all_party_choice <-
+  plot_grid(
+    all_party_choice,
+    legend_1,
+    ncol = 1,
+    rel_heights = c(1, 0.04),
+    scale = c(1, .6)
+  )
+
+all_party_choice 
+
+```
+
+
+```{r, subgroup by free speech (choice)}
+
+palette_freech  <- c("cornflowerblue", "orange")
+
+mm_speech_disinfo_pre_ch <-
+  cj(
+    scenarios,
+    choice ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "mm",
+    by =  ~ speech_disinfo_pre
+  )
+
+
+amce_speech_disinfo_pre_ch <-
+  cj(
+    scenarios,
+    choice ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "amce",
+    by = ~ speech_disinfo_pre
+  )
+
+mm_speech_disinfo_pre_choice <- mm_speech_disinfo_pre_ch %>%
+  plot(size = 1,
+       group = "speech_disinfo_pre",
+       vline_color = "white") +
+  scale_x_continuous(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1),
+                     limits = c(0, 1)) +
+  geom_vline(
+    xintercept = 0.5,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  facet_grid(feature  ~ .,
+             scales = "free", space = "free") +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 8, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.y = element_text(size = 6),
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 7),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.background = element_rect(
+      fill = '#fafafa',
+      size = 8,
+      colour = 'white'
+    ),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.01, "lines"),
+    axis.line.y = element_line("grey", size = 0.4),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    strip.text = element_blank()
+  ) +
+  scale_color_manual(
+    values = palette_freech,
+    breaks = c("Pro-freedom of expression", "Pro-preventing misinformation")
+  ) +
+  labs(title = "C. Marginal means by freedom of expression attitudes",
+       # subtitle = "Dependent variable: Choice to remove posts",
+       x = "Marginal mean for decisions to remove posts")
+mm_speech_disinfo_pre_choice
+
+
+amces_speech_disinfo_pre_choice <-
+  plot(
+    amce_speech_disinfo_pre_ch,
+    size = 1,
+    group = "speech_disinfo_pre",
+    vline_color = "#fafafa"
+  )  +
+  scale_x_continuous(breaks = c(-0.1, 0, 0.1, 0.2),
+                     limits = c(-0.1, 0.3)) +
+  geom_vline(
+    xintercept = 0,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  geom_text(
+    aes(label = ifelse(
+      estimate > 0.025 |
+        estimate < -0.025,
+      sprintf("%0.2f", estimate),
+      ""
+    )),
+    colour = "black",
+    size = 1.8,
+    nudge_y = -.5
+  ) +
+  facet_grid(feature ~ factor(
+    BY,
+    levels = c("Pro-freedom of expression", "Pro-preventing misinformation")
+  ),
+  scales = "free",
+  space = "free") +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 8, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 7),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(
+      fill = '#fafafa',
+      size = 8,
+      colour = 'white'
+    ),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.01, "lines"),
+    axis.line.y = element_line("white"),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    axis.text.y = element_blank(),
+    strip.text = element_blank()
+  ) +
+  scale_color_manual(
+    values = palette_freech,
+    breaks = c("Pro-freedom of expression", "Pro-preventing misinformation")
+  ) +
+  labs(title = "D. AMCEs by freedom of expression attitudes",
+       # subtitle = "Dependent variable: Choice to remove posts",
+       x = "Effect on probability to remove posts")
+amces_speech_disinfo_pre_choice
+
+legend_2 <- get_legend(
+  mm_speech_disinfo_pre_choice +
+    guides(color = guide_legend(nrow = 1)) +
+    theme(
+      legend.position = "bottom",
+      legend.title = element_blank(),
+      legend.text = element_text(size = 6)
+    )
+)
+
+
+all_speech_disinfo_pre_choice <-
+  plot_grid(
+    mm_speech_disinfo_pre_choice,
+    amces_speech_disinfo_pre_choice,
+    rel_widths = c(0.9, 1),
+    scale = c(0.98, .98)
+  )
+
+
+all_speech_disinfo_pre_choice <-
+  plot_grid(
+    all_speech_disinfo_pre_choice,
+    legend_2,
+    ncol = 1,
+    rel_heights = c(1, 0.04),
+    scale = c(1, .6)
+  )
+
+all_speech_disinfo_pre_choice
+
+```
+
+
+
+```{r, 4 and 5 combined}
+
+fig_4 <- plot_grid(
+  all_party_choice,
+  all_speech_disinfo_pre_choice ,
+  ncol = 1,
+  scale = c(0.99, 0.99)
+)
+fig_4
+
+ggsave(
+  filename = here("figs/figure_4.png"),
+  plot = fig_4,
+  dpi = 300,
+  units = 'cm',
+  height = 22,
+  width = 17.8
+)
+
+ggsave(
+  filename = here("figs/figure_4.pdf"),
+  plot = fig_4,
+  dpi = 300,
+  units = 'cm',
+  height = 22,
+  width = 17.8
+)
+
+```
+
+
+
+
+```{r, subgroup by party (rating)}
+
+
+mm_party_rating <-
+  plot(
+    cj(
+      scenarios,
+      rating ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+      id = ~ id,
+      estimate = "mm",
+      by =  ~ party
+    ),
+    size = 1.2,
+    group = "party"
+  ) +
+  xlim(1, 4) +
+  geom_vline(
+    xintercept = 2.41,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  facet_wrap(~ feature, ncol = 1,
+             scales = "free_y") +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.y = element_text(size = 6, face = "bold"),
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.background = element_rect(
+      fill = '#fafafa',
+      size = 8,
+      colour = 'white'
+    ),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.01, "lines"),
+    axis.line.y = element_line("grey", size = 0.4),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    strip.text = element_blank()
+  ) +
+  scale_color_manual(values = palette_partisan,
+                     breaks = c("Republican", "Independent", "Democrat")) +
+  labs(title = "A. Marginal means by respondents' party",
+       subtitle = "Dependent variable: Rating to penalize account",
+       x = "Marginal mean for rating")
+
+
+
+amces_party_rating <-
+  plot(
+    cj(
+      scenarios,
+      rating ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+      by = ~ party
+    ),
+    size = 1.2,
+    group = "party",
+    vline_color = "#fafafa"
+  )  +
+  scale_x_continuous(breaks = c(-0.2, 0, 0.2, 0.4),
+                     limits = c(-0.25, 0.55)) +
+  geom_vline(
+    xintercept = 0,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  geom_text(
+    aes(label = ifelse(
+      estimate >= 0.01 |
+        estimate <= -0.01,
+      sprintf("%0.2f", estimate),
+      ""
+    )),
+    colour = "black",
+    size = 1.8,
+    hjust = "center",
+    position = position_nudge(y = -.5)
+  ) +
+  facet_grid(feature ~ factor(BY, levels = c("Republican", "Independent", "Democrat")),
+             scales = "free_y") +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(
+      fill = '#fafafa',
+      size = 8,
+      colour = 'white'
+    ),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.01, "lines"),
+    axis.line.y = element_line("white"),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    axis.text.y = element_blank(),
+    strip.text = element_blank()
+  ) +
+  scale_color_manual(values = palette_partisan,
+                     breaks = c("Republican", "Independent", "Democrat")) +
+  labs(title = "B. AMCEs by respondents' party",
+       subtitle = "Dependent variable: Rating to penalize account",
+       x = "Effect on rating")
+
+
+legend_1r <- get_legend(
+  mm_party_rating +
+    guides(color = guide_legend(nrow = 1)) +
+    theme(legend.position = "bottom", legend.title = element_blank())
+)
+
+
+
+
+all_party_rating <-
+  plot_grid(
+    mm_party_rating,
+    amces_party_rating,
+    rel_widths = c(.8, 1),
+    scale = c(0.98, 0.98)
+  )
+
+all_party_rating <-
+  plot_grid(
+    all_party_rating,
+    legend_1r,
+    ncol = 1,
+    rel_heights = c(1, 0.05),
+    scale = c(1, .7)
+  )
+all_party_rating
+
+ggsave(
+  filename = here("figs/figure_4_rating_SI.png"),
+  plot = all_party_rating,
+  dpi = 300,
+  units = 'cm',
+  height = 15,
+  width = 17.8
+)
+
+
+ggsave(
+  filename = here("figs/figure_4_rating_SI.pdf"),
+  plot = all_party_rating,
+  dpi = 300,
+  units = 'cm',
+  height = 15,
+  width = 17.8
+)
+
+```
+
+```{r, subgroup by party (rating_bi)}
+
+
+
+palette_partisan  <- c("#d04b4b", "#aa9cb6", "steelblue")
+
+mm_party_ch <-
+  cj(
+    scenarios,
+    rating_bi ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "mm",
+    by =  ~ party
+  )
+
+
+amce_party_ch <-
+  cj(
+    scenarios,
+    rating_bi ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "amce",
+    by = ~ party
+  )
+
+mm_party_rating_bi <- mm_party_ch %>%
+  plot(size = 1.2,
+       group = "party",
+       vline_color = "white") +
+  scale_x_continuous(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1),
+                     limits = c(0, 1)) +
+  geom_vline(
+    xintercept = 0.5,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  facet_wrap(~ feature, ncol = 1,
+             scales = "free_y") +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.y = element_text(size = 6, face = "bold"),
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.background = element_rect(
+      fill = '#fafafa',
+      size = 8,
+      colour = 'white'
+    ),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.01, "lines"),
+    axis.line.y = element_line("grey", size = 0.4),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    strip.text = element_blank()
+  ) +
+  scale_color_manual(values = palette_partisan,
+                     breaks = c("Republican", "Independent", "Democrat")) +
+  labs(title = "A. Marginal means by respondents' party",
+       subtitle = "Dependent variable: dichotomized rating to suspend accounts",
+       x = "Marginal mean for decisions to suspend")
+mm_party_rating_bi
+
+
+amces_party_rating_bi <-
+  plot(
+    amce_party_ch,
+    size = 1.2,
+    group = "party",
+    vline_color = "#fafafa"
+  )  +
+  scale_x_continuous(breaks = c(-0.1, 0, 0.1, 0.2),
+                     limits = c(-0.1, 0.3)) +
+  geom_vline(
+    xintercept = 0,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  geom_text(
+    aes(label = ifelse(
+      estimate >= 0.01 |
+        estimate <= -0.01,
+      sprintf("%0.2f", estimate),
+      ""
+    )),
+    colour = "black",
+    size = 1.5,
+    nudge_y = -.5
+  ) +
+  facet_grid(feature ~ factor(BY, levels = c("Republican", "Independent", "Democrat")),
+             scales = "free_y") +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(
+      fill = '#fafafa',
+      size = 8,
+      colour = 'white'
+    ),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.01, "lines"),
+    axis.line.y = element_line("white"),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    axis.text.y = element_blank(),
+    strip.text = element_blank()
+  ) +
+  scale_color_manual(values = palette_partisan,
+                     breaks = c("Republican", "Independent", "Democrat")) +
+  labs(title = "B. AMCEs by respondents' party",
+       subtitle = "Dependent variable: dichotomized rating to suspend accounts",
+       x = "Effect on probability to suspend")
+amces_party_rating_bi
+
+legend_1 <- get_legend(
+  mm_party_rating_bi +
+    guides(color = guide_legend(nrow = 1)) +
+    theme(legend.position = "bottom", legend.title = element_blank())
+)
+
+
+all_party_rating_bi <-
+  plot_grid(
+    mm_party_rating_bi,
+    amces_party_rating_bi,
+    rel_widths = c(0.9, 1),
+    scale = c(0.98, .98)
+  )
+
+
+all_party_rating_bi <-
+  plot_grid(
+    all_party_rating_bi,
+    legend_1,
+    ncol = 1,
+    rel_heights = c(1, 0.05),
+    scale = c(1, .7)
+  )
+
+ggsave(
+  filename = here("figs/SI_figure_4_birate.png"),
+  plot = all_party_rating_bi,
+  dpi = 300,
+  units = 'cm',
+  height = 15,
+  width = 17.8
+)
+
+
+ggsave(
+  filename = here("figs/SI_figure_4_birate.pdf"),
+  plot = all_party_rating_bi,
+  dpi = 300,
+  units = 'cm',
+  height = 15,
+  width = 17.8
+)
+
+```
+
+```{r, subgroup by free speech (rating)}
+
+y <-
+  cj(
+    scenarios,
+    rating ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "mm",
+    by =  ~ speech_disinfo_pre
+  )
+
+mm_speech_rating <-
+  plot(y, size = 1.5, group = "speech_disinfo_pre") +
+  xlim(1, 4) +
+  geom_vline(
+    xintercept = 2.41,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  facet_wrap(~ feature, ncol = 1,
+             scales = "free_y") +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.y = element_text(size = 6, face = "bold"),
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.background = element_rect(
+      fill = '#fafafa',
+      size = 8,
+      colour = 'white'
+    ),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.01, "lines"),
+    axis.line.y = element_line("grey", size = 0.4),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    strip.text = element_blank()
+  ) +
+  scale_color_manual(
+    values = palette_freech,
+    breaks = c("Pro-freedom of expression", "Pro-preventing misinformation")
+  ) +
+  labs(title = "A. Marginal means by freedom of expression attitudes",
+       subtitle = "Dependent variable: Rating to penalize account",
+       x = "Marginal mean for rating")
+
+
+x <-
+  cj(
+    scenarios,
+    rating ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    by = ~ speech_disinfo_pre
+  )
+
+amces_speech_rating <-
+  plot(x,
+       size = 1.5,
+       group = "speech_disinfo_pre",
+       vline_color = "#fafafa")  +
+  scale_x_continuous(breaks = c(-0.2, 0, 0.2, 0.4),
+                     limits = c(-0.3, 0.7)) +
+  geom_vline(
+    xintercept = 0,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  geom_text(
+    aes(label = ifelse(
+      estimate >= 0.01 |
+        estimate <= -0.01,
+      sprintf("%0.2f", estimate),
+      ""
+    )),
+    colour = "black",
+    size = 1.5,
+    position = position_nudge(y = -.5)
+  ) +
+  facet_grid(feature ~ BY,
+             scales = "free_y") +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.background = element_rect(
+      fill = '#fafafa',
+      size = 8,
+      colour = 'white'
+    ),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.01, "lines"),
+    axis.line.y = element_line("white"),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    axis.text.y = element_blank(),
+    strip.text = element_blank()
+  ) +
+  scale_color_manual(
+    values = palette_freech,
+    breaks = c("Pro-freedom of expression", "Pro-preventing misinformation")
+  ) +
+  labs(title = "B. AMCEs by freedom of expression attitudes",
+       subtitle = "Dependent variable: Rating to penalize account",
+       x = "Effect on rating")
+
+
+
+#
+legend_3 <- get_legend(
+  mm_speech_rating  +
+    guides(color = guide_legend(nrow = 1)) +
+    theme(legend.position = "bottom", legend.title = element_blank())
+)
+
+
+
+
+all_speech_rating <-
+  plot_grid(
+    mm_speech_rating,
+    amces_speech_rating,
+    rel_widths = c(0.9, 1),
+    scale = c(0.98, 0.98)
+  )
+all_speech_rating <-
+  plot_grid(
+    all_speech_rating,
+    legend_3,
+    ncol = 1,
+    rel_heights = c(1, 0.05),
+    scale = c(1, .7)
+  )
+
+ggsave(
+  filename = here("figs/figure_5_rating_SI.png"),
+  plot = all_speech_rating,
+  dpi = 300,
+  units = 'cm',
+  height = 15,
+  width = 17.8
+)
+
+
+ggsave(
+  filename = here("figs/figure_5_rating_SI.pdf"),
+  plot = all_speech_rating,
+  dpi = 300,
+  units = 'cm',
+  height = 15,
+  width = 17.8
+)
+
+```
+
+```{r, subgroup by free speech (rating_bi)}
+
+
+
+palette_freech  <- c("cornflowerblue", "orange")
+y <-
+  cj(
+    scenarios,
+    rating_bi ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "mm",
+    by =  ~ speech_disinfo_pre
+  )
+
+mm_speech_rating_bi <-
+  plot(y, size = 1.5, group = "speech_disinfo_pre", vline_color = "white") +
+   scale_x_continuous(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1),
+                     limits = c(0, 1)) +
+  geom_vline(xintercept = .5,
+             size = .3,
+             color = "black",
+             alpha = .5,
+             linetype = 'dashed') +
+   facet_wrap( ~ feature, ncol =1,
+             scales = "free_y") +
+ theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.y = element_text(size = 6, face = "bold"),
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.background = element_rect(fill = '#fafafa', size = 8, colour = 'white'),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.01, "lines"),
+    axis.line.y = element_line("grey", size = 0.4),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+   strip.text = element_blank()
+  ) +
+  scale_color_manual(
+    values = palette_freech,
+    breaks = c("Pro-freedom of expression", "Pro-preventing misinformation")
+  ) +
+   labs(title = "A. Marginal means by freedom of expression attitudes",
+       subtitle = "Dependent variable: dichotomized rating to suspend accounts",
+       x = "Marginal mean for decisions to suspend")
+
+
+x <-
+  cj(
+    scenarios,
+    rating_bi ~ level_4 + level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    estimate = "amce",
+    by = ~ speech_disinfo_pre
+  )
+
+amces_speech_rating_bi <-
+  plot(x, size = 1.5, group = "speech_disinfo_pre",
+    vline_color = "#fafafa")  +
+ scale_x_continuous(breaks = c(-0.1, 0, 0.1, 0.2),
+                     limits = c(-0.1, 0.3)) +
+  geom_vline(xintercept = 0,
+             size = .3,
+             color = "black",
+             alpha = .5,
+             linetype = 'dashed') +
+  geom_text(
+    aes(label = ifelse(
+      estimate >= 0.01 |
+        estimate <= -0.01,
+      sprintf("%0.2f", estimate),
+      ""
+    )),
+    colour = "black",
+    size = 1.5,
+    hjust = "center",
+    position = position_nudge(y = -.5)
+  ) +
+  facet_grid(feature ~ BY,
+             scales = "free_y") +
+theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = '#fafafa', size = 8, colour = 'white'),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.01, "lines"),
+    axis.line.y = element_line("white"),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    axis.text.y = element_blank(),
+    strip.text = element_blank()
+  ) +
+  scale_color_manual(
+    values = palette_freech,
+    breaks = c("Pro-freedom of expression", "Pro-preventing misinformation")
+  ) +
+    labs(title = "B. AMCEs by freedom of expression attitudes",
+       subtitle = "Dependent variable: dichotomized rating to suspend accounts",
+       x = "Effect on probability to suspend")
+
+
+
+legend_2 <- get_legend(
+  mm_speech_rating_bi  +
+    guides(color = guide_legend(nrow = 1)) +
+    theme(legend.position = "bottom", legend.title = element_blank())
+)
+
+
+all_speech_rating_bi <-
+  plot_grid(mm_speech_rating_bi, amces_speech_rating_bi, rel_widths = c(0.9, 1), scale = c(0.98, 0.98))
+all_speech_rating_bi <-
+  plot_grid(
+    all_speech_rating_bi,
+    legend_2,
+    ncol = 1,
+    rel_heights = c(1, 0.05),
+    scale = c(1, .7)
+  )
+
+ggsave(
+  filename = here("figs/SI_figure_5_birate.png"),
+  plot = all_speech_rating_bi,
+  dpi = 300,
+  units = 'cm',
+  height = 15,
+  width = 17.8
+)
+
+
+ggsave(
+  filename = here("figs/SI_figure_5_birate.pdf"),
+  plot = all_speech_rating_bi,
+  dpi = 300,
+  units = 'cm',
+  height = 15,
+  width = 17.8
+)
+
+
+```
+
+```{r, subgroup by scenario, choice and rating, SI figures}
+
+amces_sc_choice <-
+  cj(
+    scenarios,
+    choice ~ level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "amce",
+    by = ~ level_4
+  ) %>%
+  mutate(BY = factor(
+    BY,
+    levels = c(
+      "Election denial",
+      "Anti-vaccination",
+      "Holocaust denial",
+      "Climate change denial"
+    )
+  ))
+
+
+Fig1_choice <-
+  plot(amces_sc_choice, size = 1, vline_color = "white") + ggplot2::facet_wrap(~ BY, ncol = 4L) +
+  scale_x_continuous(breaks = c(-0.05, 0, 0.05, 0.1),
+                     limits = c(-0.05, 0.18)) +
+  geom_vline(
+    xintercept = 0,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  geom_text(
+    aes(label = ifelse(
+      estimate > 0.02 | estimate < -0.02, sprintf("%0.2f", estimate), ""
+    )),
+    colour = "black",
+    size = 2,
+    position = position_nudge(y = .5)
+  ) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = 'white', colour = 'white'),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.05, "lines"),
+    axis.line.y = element_line("white"),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    axis.text.y = element_text(size = 6, face = "bold"),
+    strip.text = element_text(size = 6, face = "bold")
+  ) +
+  scale_color_aaas() +
+  labs(title = "B. AMCEs by scenario: Choice to remove posts", x = "Effect on probability to remove posts")
+Fig1_choice
+
+amces_sc_rating <-
+  cj(
+    scenarios,
+    rating ~ level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "amce",
+    by = ~ level_4
+  ) %>%
+  mutate(BY = factor(
+    BY,
+    levels = c(
+      "Election denial",
+      "Anti-vaccination",
+      "Holocaust denial",
+      "Climate change denial"
+    )
+  ))
+
+Fig1_rating <-
+  plot(amces_sc_rating, size = 1, vline_color = "white") + ggplot2::facet_wrap(~ BY, ncol = 4L) +
+  xlim(-0.1, 0.6) +
+  geom_vline(
+    xintercept = 0,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  geom_text(
+    aes(label = ifelse(
+      estimate > 0.02 | estimate < -0.02, sprintf("%0.2f", estimate), ""
+    )),
+    colour = "black",
+    size = 2,
+    hjust = "center",
+    position = position_nudge(y = -.5)
+  ) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = 'white', colour = 'white'),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.05, "lines"),
+    axis.line.y = element_line("white"),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    axis.text.y = element_text(size = 6, face = "bold"),
+    strip.text = element_text(size = 6, face = "bold")
+  ) +
+  scale_color_aaas() +
+  labs(title = "B. AMCEs by scenario: Rating to penalize account", x = "Effect on rating")
+Fig1_rating
+
+mm_sc_choice <-
+  cj(
+    scenarios,
+    choice ~ level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "mm",
+    by = ~ level_4
+  ) %>%
+  mutate(BY = factor(
+    BY,
+    levels = c(
+      "Election denial",
+      "Anti-vaccination",
+      "Holocaust denial",
+      "Climate change denial"
+    )
+  ))
+
+Fig1_mm_choice <-
+  plot(mm_sc_choice, size = 1) + ggplot2::facet_wrap(~ BY, ncol = 4L) +
+  xlim(0.4, 0.8) +
+  geom_vline(
+    xintercept = 0.5,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = 'white', colour = 'white'),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.05, "lines"),
+    axis.line.y = element_line("white"),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    axis.text.y = element_text(size = 6, face = "bold"),
+    strip.text = element_text(size = 6, face = "bold")
+  ) +
+  scale_color_aaas() +
+  labs(title = "A. Marginal means by scenario: Choice to remove posts", x = "Marginal mean for decisions to remove posts")
+Fig1_mm_choice
+
+mm_sc_rating <-
+  cj(
+    scenarios,
+    rating ~ level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "mm",
+    by = ~ level_4
+  ) %>%
+  mutate(BY = factor(
+    BY,
+    levels = c(
+      "Election denial",
+      "Anti-vaccination",
+      "Holocaust denial",
+      "Climate change denial"
+    )
+  ))
+
+Fig1_mm_rating <-
+  plot(mm_sc_rating, size = 1) + ggplot2::facet_wrap(~ BY, ncol = 4L) +
+  xlim(1, 4) +
+  geom_vline(
+    xintercept = 2.41,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = 'white', colour = 'white'),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.05, "lines"),
+    axis.line.y = element_line("white"),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    axis.text.y = element_text(size = 6, face = "bold"),
+    strip.text = element_text(size = 6, face = "bold")
+  ) +
+  scale_color_aaas() +
+  labs(title = "A. Marginal means by scenario: Rating to penalize account",  x = "Marginal mean for rating")
+Fig1_mm_rating
+
+
+Fig1_SI <-
+  plot_grid(
+    Fig1_mm_choice,
+    Fig1_choice,
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(0.8, 1)
+  )
+Fig1_SI
+Fig2_SI <-
+  plot_grid(
+    Fig1_mm_rating,
+    Fig1_rating,
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(0.8, 1)
+  )
+Fig2_SI
+
+ggsave(
+  filename = here("figs/SI_scenario_ch.png"),
+  plot = Fig1_SI,
+  dpi = 300,
+  units = 'cm',
+  height = 22,
+  width = 17.8
+)
+
+
+ggsave(
+  filename = here("figs/SI_scenario_ch.pdf"),
+  plot = Fig1_SI,
+  dpi = 300,
+  units = 'cm',
+  height = 22,
+  width = 17.8
+)
+
+ggsave(
+  filename = here("figs/SI_scenario_r.png"),
+  plot = Fig2_SI,
+  dpi = 300,
+  units = 'cm',
+  height = 22,
+  width = 17.8
+)
+
+
+ggsave(
+  filename = here("figs/SI_scenario_r.pdf"),
+  plot = Fig2_SI,
+  dpi = 300,
+  units = 'cm',
+  height = 22,
+  width = 17.8
+)
+
+```
+
+```{r, subgroup by scenario, rating_bi, SI figures}
+
+
+amces_sc_rating_bi <-
+  cj(
+    scenarios,
+    rating_bi ~ level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "amce",
+    by = ~ level_4
+  ) %>%
+  mutate(BY = factor(
+    BY,
+    levels = c(
+      "Election denial",
+      "Anti-vaccination",
+      "Holocaust denial",
+      "Climate change denial"
+    )
+  ))
+
+
+Fig1_rating_bi <-
+  plot(amces_sc_rating_bi, size = 1, vline_color = "white") + ggplot2::facet_wrap(~ BY, ncol = 4L) +
+  scale_x_continuous(breaks = c(-0.1, 0, 0.1, 0.2),
+                     limits = c(-0.1, 0.3)) +
+  geom_vline(
+    xintercept = 0,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  geom_text(
+    aes(label = ifelse(
+      estimate > 0.02 | estimate < -0.02, sprintf("%0.2f", estimate), ""
+    )),
+    colour = "black",
+    size = 2,
+    position = position_nudge(y = .5)
+  ) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = 'white', colour = 'white'),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.05, "lines"),
+    axis.line.y = element_line("white"),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    axis.text.y = element_text(size = 6, face = "bold"),
+    strip.text = element_text(size = 6, face = "bold")
+  ) +
+  scale_color_aaas() +
+  labs(title = "B. AMCEs by scenario: Dichotomized rating to suspend accounts", x = "Effect on decision to suspend")
+Fig1_rating_bi
+
+
+mm_sc_rating_bi <-
+  cj(
+    scenarios,
+    rating_bi ~ level_7 + level_6 + level_5 + level_1 + level_2 + level_3,
+    id = ~ id,
+    estimate = "mm",
+    by = ~ level_4
+  ) %>%
+  mutate(BY = factor(
+    BY,
+    levels = c(
+      "Election denial",
+      "Anti-vaccination",
+      "Holocaust denial",
+      "Climate change denial"
+    )
+  ))
+
+Fig1_mm_rating_bi <-
+  plot(mm_sc_rating_bi, size = 1) + ggplot2::facet_wrap(~ BY, ncol = 4L) +
+  xlim(0.1, 0.9) +
+  geom_vline(
+    xintercept = 0.5,
+    size = .3,
+    color = "black",
+    alpha = .5,
+    linetype = 'dashed'
+  ) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 9, face = "bold"),
+    plot.subtitle  = element_text(size = 8),
+    plot.title.position = "plot",
+    axis.text.x = element_text(size = 6),
+    axis.title.x = element_text(size = 8),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = 'white', colour = 'white'),
+    strip.background = element_rect(fill = 'white', colour = 'white'),
+    panel.spacing = unit(.05, "lines"),
+    axis.line.y = element_line("white"),
+    axis.line.x = element_line("grey", size = 0.4),
+    axis.ticks = element_blank(),
+    axis.text.y = element_text(size = 6, face = "bold"),
+    strip.text = element_text(size = 6, face = "bold")
+  ) +
+  scale_color_aaas() +
+  labs(title = "A. Marginal means by scenario: Dichotomized rating to suspend accounts", x = "Marginal mean for decisions to suspend")
+Fig1_mm_rating_bi
+
+
+
+Fig3_SI <-
+  plot_grid(
+    Fig1_mm_rating_bi,
+    Fig1_rating_bi,
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(0.8, 1)
+  )
+Fig3_SI
+
+
+ggsave(
+  filename = here("figs/SI_scenario_birate.png"),
+  plot = Fig3_SI,
+  dpi = 300,
+  units = 'cm',
+  height = 22,
+  width = 17.8
+)
+
+
+ggsave(
+  filename = here("figs/SI_scenario_birate.pdf"),
+  plot = Fig3_SI,
+  dpi = 300,
+  units = 'cm',
+  height = 22,
+  width = 17.8
+)
+
+
+```

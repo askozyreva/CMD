@@ -1,0 +1,821 @@
+---
+title: "Content Moderation Dilemmas Online: figure 2 main and SI"
+
+
+---
+
+```{r setup, include=FALSE}
+
+
+if(!require("pacman")) install.packages("pacman"); library(pacman)
+p_load("tidyverse", "here", "workflowr",
+          "jtools", "broom","sjlabelled", "dplyr","ggplot2", "cowplot", "glue", "cregg")
+
+
+source(here('code/functions.R'))
+
+options(scipen = 999)
+
+
+```
+
+```{r load and filter data, include=FALSE, echo=FALSE}
+
+scenarios <- import(here('data/scenarios.RData'))
+
+```
+
+
+
+```{r theming fig 2, cache = FALSE}
+
+theme_update(
+  legend.position = "bottom",
+  legend.justification = 0.5,
+  legend.text = element_text(size = 6),
+  legend.title = element_text(size = 6),
+  plot.title = element_text(size = 8, face = "bold"),
+  plot.title.position = "plot",
+  axis.text.y = element_text(size = 6, face = "bold"),
+  axis.text.x = element_text(size = 6, face = "bold"),
+  axis.title.x = element_text(size = 8),
+  axis.title.y = element_text(size = 8),
+  panel.border = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  axis.line.y = element_line("grey", size = 0.2),
+  axis.line.x = element_line("grey", size = 0.2),
+  panel.background = element_rect(fill = 'white', colour = 'white'),
+  strip.background = element_rect(fill = 'white', colour = 'white'),
+  strip.text = element_text(size = 8)
+)
+
+
+```
+
+```{r, figure 2 prep}
+
+
+
+sum_all <-
+  scenarios %>% dplyr::select(id, choice, rating, scenario, party) %>%
+  mutate(choice = factor(
+    choice,
+    levels = c("0", "1"),
+    labels = c("Do nothing", "Remove")
+  ))  %>%
+  mutate(rating = factor(
+    rating,
+    levels = c(4, 3, 2, 1),
+    labels = c(
+      "Indefinitely\nsuspend",
+      "Temporarily\nsuspend",
+      "Issue\na warning",
+      "Do nothing"
+    )
+  )) %>%
+  mutate(scenario = factor(
+    scenario,
+    levels = c(
+      "Scenario 1: Election denial",
+      "Scenario 2: Anti-vaccination",
+      "Scenario 3: Holocaust denial",
+      "Scenario 4: Climate change denial"
+    ),
+    labels = c(
+      "Election denial",
+      "Anti-vaccination",
+      "Holocaust denial",
+      "Climate change denial"
+    )
+  ))
+
+#for N of profiles by party
+sum_all_x <- scenarios %>% dplyr::select(id, scenario, party) %>%
+  group_by(party) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>%
+  mutate(N = sum(n),
+         prop = n / N,
+         perc = fnc_perc2(prop))
+
+sum_all_choice <- sum_all %>%
+  group_by(choice, scenario) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>%
+  group_by(scenario) %>%
+  mutate(N = sum(n),
+         prop = n / N,
+         perc = fnc_perc2(prop)) %>%
+  mutate(
+    SE = sqrt(prop * (1 - prop) / N),
+    prop_low = prop - SE,
+    prop_high = prop + SE
+  ) %>%
+  mutate(side = ifelse(str_detect(choice, "nothing"), "left", "right")) %>%
+  mutate(var = "choice")
+
+
+# find numbers for right side
+sum_all_choice_right <- sum_all_choice %>%
+  filter(side == "right")
+
+# find numbers for left side
+sum_all_choice_left <- sum_all_choice %>%
+  filter(side == "left")
+
+
+
+sum_all_rating <- sum_all %>%
+  group_by(rating, scenario) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>%
+  group_by(scenario) %>%
+  mutate(N = sum(n),
+         prop = n / N,
+         perc = fnc_perc2(prop)) %>%
+  mutate(
+    SE = sqrt(prop * (1 - prop) / N),
+    prop_low = prop - SE,
+    prop_high = prop + SE
+  ) %>%
+  mutate(side = ifelse(
+    str_detect(rating, "nothing") |
+      str_detect(rating, "warning"),
+    "left",
+    "right"
+  )) %>%
+  mutate(var = "rating")
+
+sum_all_rating_right <- sum_all_rating %>%
+  filter(side == "right")
+
+sum_all_rating_left <- sum_all_rating %>%
+  filter(side == "left")
+
+
+
+party_choice <- sum_all %>%
+  group_by(choice, scenario, party) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>%
+  group_by(scenario, party) %>%
+  mutate(N = sum(n),
+         prop = n / N,
+         perc = fnc_perc2(prop)) %>%
+  mutate(
+    SE = sqrt(prop * (1 - prop) / N),
+    prop_low = prop - SE,
+    prop_high = prop + SE
+  ) %>%
+  mutate(side = ifelse(str_detect(choice, "nothing"), "left", "right")) %>%
+  mutate(scenario = factor(
+    scenario,
+    levels = c(
+      "Election denial",
+      "Anti-vaccination",
+      "Holocaust denial",
+      "Climate change denial"
+    ),
+    labels = c("Election", "Vaccination", "Holocaust", "Climate")
+  ))
+
+
+# find numbers for right side
+party_choice_right <- party_choice %>%
+  filter(side == "right")
+
+# find numbers for left side
+party_choice_left <- party_choice %>%
+  filter(side == "left")
+
+
+
+
+party_rating <- sum_all %>%
+  group_by(rating, scenario, party) %>%
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup() %>%
+  group_by(scenario, party) %>%
+  mutate(N = sum(n),
+         prop = n / N,
+         perc = fnc_perc2(prop)) %>%
+  mutate(
+    SE = sqrt(prop * (1 - prop) / N),
+    prop_low = prop - SE,
+    prop_high = prop + SE
+  ) %>%
+  mutate(side = ifelse(
+    str_detect(rating, "nothing") |
+      str_detect(rating, "warning"),
+    "left",
+    "right"
+  )) %>%
+  mutate(scenario = factor(
+    scenario,
+    levels = c(
+      "Election denial",
+      "Anti-vaccination",
+      "Holocaust denial",
+      "Climate change denial"
+    ),
+    labels = c("Election", "Vaccination", "Holocaust", "Climate")
+  ))
+
+
+# find numbers for right side
+party_rating_right <- party_rating %>%
+  filter(side == "right")
+
+# find numbers for left side
+party_rating_left <- party_rating %>%
+  filter(side == "left")
+
+
+
+```
+
+
+```{r, figure 2}
+
+
+
+fig1_palette  <- c("#aabdcd",  "#fa654a", "#76A08A", "#FDDDA4")
+
+fig1_palette2  <- c("#aabdcd",   "#FDDDA4", "#fb9380", "#e15a42")
+
+fig_choice <- ggplot() +
+  scale_x_discrete("") +
+  scale_y_continuous("",
+                     guide = NULL,
+                     limits = c(NA, +110)) +
+  geom_bar(
+    data = sum_all_choice_right,
+    aes(
+      x = fct_rev(scenario),
+      y = perc,
+      fill = choice
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = sum_all_choice_right,
+    aes(
+      x = scenario,
+      y = perc,
+      label = perc,
+      group = choice
+    ),
+    size = 2,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_bar(
+    data = sum_all_choice_left,
+    aes(
+      x = fct_rev(scenario),
+      y = -perc,
+      fill = choice
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = sum_all_choice_left,
+    aes(
+      x = scenario,
+      y = -perc,
+      label = perc,
+      group = choice
+    ),
+    size = 2,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_hline(yintercept = 0, size = 0.1) +
+  coord_flip() +
+  guides(fill = guide_legend(reverse = FALSE)) +
+  theme(panel.grid.major = element_blank()) +
+  theme(axis.ticks = element_blank()) +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.justification = "left",
+    legend.key.height = unit(0.4, 'cm'),
+    legend.key.width = unit(0.4, 'cm')
+  ) +
+  scale_fill_manual(values = fig1_palette) +
+  labs(title = "A. Choices to remove posts by misinformation topic")
+
+
+
+
+
+fig_rating <- ggplot() +
+  scale_x_discrete("") +
+  scale_y_continuous("",
+                     guide = NULL,
+                     limits = c(NA, +110)) +
+  geom_bar(
+    data = sum_all_rating_right,
+    aes(
+      x = fct_rev(scenario),
+      y = perc,
+      fill = rating
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = sum_all_rating_right,
+    aes(
+      x = scenario,
+      y = perc,
+      label = perc,
+      group = rating
+    ),
+    size = 2,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_bar(
+    data = sum_all_rating_left,
+    aes(
+      x = fct_rev(scenario),
+      y = -perc,
+      # fill = rating,
+      fill = reorder(rating, desc(rating))
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = sum_all_rating_left,
+    aes(
+      x = scenario,
+      y = -perc,
+      label = perc,
+      # group = rating,
+      group = reorder(rating, desc(rating))
+    ),
+    size = 2,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_hline(yintercept = 0, size = 0.1) +
+  coord_flip() +
+  guides(fill = guide_legend(reverse = FALSE, nrow = 1)) +
+  theme(panel.grid.major = element_blank()) +
+  theme(axis.ticks = element_blank()) +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.justification = "right",
+    legend.key.height = unit(0.4, 'cm'),
+    legend.key.width = unit(0.4, 'cm')
+  ) +
+  guides(color = guide_legend(nrow = 1)) +
+  scale_fill_manual(
+    values = fig1_palette2,
+    breaks = c(
+      "Do nothing",
+      "Issue\na warning",
+      "Temporarily\nsuspend",
+      "Indefinitely\nsuspend"
+    )
+  ) +
+  labs(title = "C. Choices to penalize account by misinformation topic")
+
+
+
+fig_party_choice <- ggplot() +
+  scale_x_discrete("") +
+  scale_y_continuous("",
+                     guide = NULL,
+                     limits = c(NA, +110)) +
+  geom_bar(
+    data = party_choice_right,
+    aes(x = scenario,
+        y = perc,
+        fill = choice),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = party_choice_right,
+    aes(
+      x = scenario,
+      y = perc,
+      label = perc,
+      group = choice
+    ),
+    size = 1.5,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_bar(
+    data = party_choice_left,
+    aes(x = scenario,
+        y = -perc,
+        fill = choice),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = party_choice_left,
+    aes(
+      x = scenario,
+      y = -perc,
+      label = perc,
+      group = choice
+    ),
+    size = 1.5,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_hline(yintercept = 0, size = 0.1) +
+  facet_wrap(~ party) +
+  guides(fill = guide_legend(reverse = FALSE)) +
+  theme(
+    panel.grid.major = element_blank(),
+    legend.position = "none",
+    axis.ticks = element_blank(),
+    axis.text.x = element_text(
+      angle = 90,
+      vjust = 0.5,
+      hjust = 1
+    )
+  ) +
+  scale_fill_manual(values = fig1_palette) +
+  labs(title = "B. Choices to remove posts by topic and respondents' party")
+
+
+
+fig_party_rating <- ggplot() +
+  scale_x_discrete("") +
+  scale_y_continuous("",
+                     guide = NULL,
+                     limits = c(NA, +110)) +
+  geom_bar(
+    data = party_rating_right,
+    aes(x = scenario,
+        y = perc,
+        fill = rating),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = party_rating_right,
+    aes(
+      x = scenario,
+      y = perc,
+      label = perc,
+      group = rating
+    ),
+    size = 1.5,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_bar(
+    data = party_rating_left,
+    aes(
+      x = scenario,
+      y = -perc,
+      # fill = rating,
+      fill = reorder(rating, desc(rating))
+    ),
+    width = .8,
+    position = "stack",
+    stat = "identity"
+  ) +
+  geom_text(
+    data = party_rating_left,
+    aes(
+      x = scenario,
+      y = -perc,
+      label = perc,
+      group = reorder(rating, desc(rating))
+    ),
+    size = 1.5,
+    color = "black",
+    fontface = "bold",
+    position = position_stack(vjust = 0.5)
+  ) +
+  geom_hline(yintercept = 0, size = 0.1) +
+  # coord_flip() +
+  guides(fill = guide_legend(reverse = FALSE)) +
+  theme(panel.grid.major = element_blank()) +
+  theme(legend.position = "none") +
+  facet_wrap(~ party) +
+  theme(axis.ticks = element_blank()) +
+  theme(axis.text.x = element_text(
+    angle = 90,
+    vjust = 0.5,
+    hjust = 1
+  )) +
+  scale_fill_manual(
+    values = fig1_palette2,
+    breaks = c(
+      "Do nothing",
+      "Issue\na warning",
+      "Temporarily\nsuspend",
+      "Indefinitely\nsuspend"
+    )
+  ) +
+   labs(title = "D. Choices to penalize account by topic and respondents' party")
+
+
+f2 <-
+  plot_grid(
+    fig_choice,
+    fig_party_choice,
+    fig_rating,
+    fig_party_rating,
+    ncol = 2,
+    nrow = 2,
+    rel_heights = c(0.8, 0.8, 1, 1),
+    scale = c(.98, .98, .98, .98)
+  )
+
+
+ggsave(
+  filename = here("figs/figure_2.png"),
+  plot = f2,
+  dpi = 300,
+  units = 'cm',
+  height = 14,
+  width = 17.8
+)
+
+ggsave(
+  filename = here("figs/figure_2.pdf"),
+  plot = f2,
+  dpi = 300,
+  units = 'cm',
+  height = 14,
+  width = 17.8
+)
+
+
+```
+
+
+```{r theming fig 2 SI, cache = FALSE}
+
+theme_update(
+  legend.position = "bottom",
+  legend.justification = 0.5,
+  legend.text = element_text(size = 6),
+  legend.title = element_text(size = 6),
+  plot.title = element_text(size = 10, face = "bold"),
+  plot.title.position = "plot",
+  axis.text.y = element_text(size = 6, face = "bold"),
+  axis.text.x = element_text(size = 6, face = "bold"),
+  axis.title.x = element_text(size = 8),
+  axis.title.y = element_text(size = 8),
+  panel.border = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  axis.line.y = element_line("grey", size = 0.2),
+  axis.line.x = element_line("grey", size = 0.2),
+  panel.background = element_rect(fill = 'white', colour = 'white'),
+  strip.background = element_rect(fill = 'white', colour = 'white'),
+  strip.text = element_text(size = 8, face = "bold")
+)
+
+
+```
+
+```{r fig 2 SI panel A}
+mm_rating_bi <-
+  cj(scenarios,
+     rating_bi ~ level_4,
+     id = ~ id,
+     estimate = "mm")
+
+mm_rating_bi_table <- mm_rating_bi %>%
+  select("feature",
+         "level",
+         "estimate",
+         "std.error",
+         "lower",
+         "upper") %>%
+  mutate(var = "Dichotomized rating:\nDo nothing or issue a warning vs.\ntemporarily or indefinitely suspend account")
+
+mm_choice <-
+  cj(scenarios,
+     choice ~ level_4,
+     id = ~ id,
+     estimate = "mm")
+
+mm_choice_table <- mm_choice %>% 
+   select("feature",
+         "level",
+         "estimate",
+         "std.error",
+         "lower",
+         "upper") %>%
+  mutate(var = "Choice:\nDo nothing vs. remove posts")
+
+mm_all <- rbind(mm_rating_bi_table, mm_choice_table) %>%
+  mutate(estimate_str = format(100 * estimate, digits = 1, trim = TRUE))
+
+mm_plot <- mm_all %>%
+  ggplot(
+    aes(
+      x = level,
+      y = 100 * estimate,
+      ymin = 100 * lower,
+      ymax = 100 * upper,
+      group = level,
+      color = var,
+      label = estimate_str
+    )
+  ) +
+  scale_y_continuous(breaks = seq(from = 0, to = 100, by = 20),
+                     limits = c(0, 100)) +
+  geom_vline(aes(xintercept = level), alpha = .02, size = 6) +
+  geom_hline(yintercept = 50,
+             alpha = .2,
+             linetype = "dashed") +
+  # geom_pointrange(position = position_dodge(width = 0.5), size = 0.15,
+  #                 data = filter(mm_all,!is.na(std.error))) +
+  
+  geom_point(position = position_dodge(width = 0.5), size = 1.3) +
+  geom_errorbar(position = position_dodge(width = 0.5),
+                size = 0.25,
+                width = 0) +
+  geom_text(
+    aes(y = 100 * upper + .25),
+    hjust = "left",
+    color = "black",
+    size = 2,
+    position = position_dodge(width = .5),
+    data = filter(mm_all, !is.na(std.error))
+  ) +
+  coord_flip() +
+  guides(color = "none") +
+  scale_color_manual(
+    values = c("#ee0000", "blue"),
+    breaks = c(
+      "Choice:\nDo nothing vs. remove posts",
+      "Dichotomized rating:\nDo nothing or issue a warning vs.\ntemporarily or indefinitely suspend account"
+    )
+  ) +
+  facet_grid( ~ factor(
+    var,
+    levels = c(
+      "Choice:\nDo nothing vs. remove posts",
+      "Dichotomized rating:\nDo nothing or issue a warning vs.\ntemporarily or indefinitely suspend account"
+    )
+  ), scales = "free_y") +
+  labs(title = "A. Proportion of choices for two dependent variables: Remove posts and penalize accounts",
+       y = "Proportion of choices to remove posts or suspend account (%)",
+       x = "")
+mm_plot
+```
+
+
+```{r fig 2 SI panel B}
+
+palette_partisan  <- c("#d04b4b", "#9584a4", "steelblue")
+
+mm_rating_bi_party <-
+  cj(
+    scenarios,
+    rating_bi ~ level_4,
+    id = ~ id,
+    estimate = "mm",
+    by =  ~ party
+  )
+
+mm_rating_bi_table_party <- mm_rating_bi_party %>%
+  select("feature",
+         "level",
+         "estimate",
+         "std.error",
+         "lower",
+         "upper",
+         "BY") %>%
+  mutate(var = "Dichotomized rating:\nDo nothing or issue a warning vs.\ntemporarily or indefinitely suspend account")
+
+mm_choice_party <-
+  cj(
+    scenarios,
+    choice ~ level_4,
+    id = ~ id,
+    estimate = "mm",
+    by =  ~ party
+  )
+
+mm_choice_table_party <- mm_choice_party %>%
+  select("feature",
+         "level",
+         "estimate",
+         "std.error",
+         "lower",
+         "upper",
+         "BY") %>%
+  mutate(var = "Choice:\nDo nothing vs. remove posts")
+
+mm_all_party <-
+  rbind(mm_rating_bi_table_party, mm_choice_table_party) %>%
+  mutate(estimate_str = format(100 * estimate, digits = 1, trim = TRUE))
+
+mm_plot_party <- mm_all_party %>%
+  ggplot(
+    aes(
+      x = level,
+      # x = reorder(level, desc(level)),
+      y = 100 * estimate,
+      ymin = 100 * lower,
+      ymax = 100 * upper,
+      group = BY,
+      #color = feature,
+      color = BY,
+      label = estimate_str
+    )
+  ) +
+  scale_y_continuous(breaks = seq(from = 0, to = 100, by = 20),
+                     limits = c(0, 100)) +
+  geom_vline(aes(xintercept = level), alpha = .02, size = 12) +
+  geom_hline(yintercept = 50,
+             alpha = .2,
+             linetype = "dashed") +
+  geom_point(position = position_dodge(width = 0.5), size = 1.3) +
+  geom_errorbar(position = position_dodge(width = 0.5),
+                size = 0.25,
+                width = 0) +
+  # geom_pointrange(position = position_dodge(width = 0.5), size = 0.15,
+  #                 data = filter(mm_all_party,!is.na(std.error))) +
+  geom_text(
+    aes(y = 100 * upper + .25),
+    hjust = "left",
+    color = "black",
+    size = 2,
+    position = position_dodge(width = .5),
+    data = filter(mm_all_party,!is.na(std.error))
+  ) +
+  coord_flip() +
+  scale_color_manual(values = palette_partisan,
+                     breaks = c("Republican", "Independent", "Democrat")) +
+  facet_grid(~ factor(
+    var,
+    levels = c(
+      "Choice:\nDo nothing vs. remove posts",
+      "Dichotomized rating:\nDo nothing or issue a warning vs.\ntemporarily or indefinitely suspend account"
+    )
+  ), scales = "free") +
+  labs(title = "B. Proportion of choices for two dependent variables: Remove posts and penalize accounts\nby respondents' party",
+       y = "Proportion of choices to remove posts or suspend account (%)",
+       x = "")
+mm_plot_party
+
+f2_SI <-
+  plot_grid(
+    mm_plot,
+    mm_plot_party,
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(0.6, 1),
+    scale = c(.98, .98)
+  )
+
+
+ggsave(
+  filename = here("figs/figure_2_SI.png"),
+  plot = f2_SI,
+  dpi = 300,
+  units = 'cm',
+  height = 16,
+  width = 17.8
+)
+
+ggsave(
+  filename = here("figs/figure_2_SI.pdf"),
+  plot = f2_SI,
+  dpi = 300,
+  units = 'cm',
+  height = 16,
+  width = 17.8
+)
+
+
+
+```
+

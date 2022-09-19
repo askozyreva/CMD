@@ -62,7 +62,7 @@ party <- df %>% dplyr::select(contains("pid")) %>%
   )) %>%
   unite("party", pid3:pid7_reps, na.rm = TRUE) %>%
   mutate(party = as.factor(party)) %>%
-  mutate(party = factor(
+  mutate(party_enhanced = factor(
     party,
     levels = c(
       "Democrat_Strong",
@@ -149,13 +149,14 @@ freespeech_limits <-
 ```
 
 
+
 ```{r, expand df, include= FALSE}
 
 # add political party
 #
 df <- cbind(df, party, freespeech_limits) %>%
   mutate(party = factor(
-    party,
+    party_enhanced,
     levels = c(
       "Strong\nDemocrat",
       "Moderate\nDemocrat",
@@ -184,10 +185,10 @@ df <- cbind(df, party, freespeech_limits) %>%
     labels = c(
       "Liberal",
       "Liberal",
-      "Moderate or not sure",
+      "Moderate",
       "Conservative",
       "Conservative",
-      "Moderate or not sure"
+      "Not sure"
     )
   ))
 # write.csv(df, here("data/main_df.csv"))
@@ -223,23 +224,49 @@ df1 <- df %>%
     levels = c(1, 2, 0),
     labels = c("False", "Do not know", "True")
   )) %>%
+   mutate(accuracy1 = factor(
+    disinfo_beliefs_1,
+     ordered = FALSE,
+   levels = c(1, 2, 0),
+    labels = c("0", "1", "2")
+  )) %>%
   mutate(holocaust_is_fact = factor(
     disinfo_beliefs_2,
     ordered = FALSE,
     levels = c(1, 2, 0),
     labels = c("False", "Do not know", "True")
-  )) %>% mutate(
+  )) %>% 
+     mutate(accuracy2 = factor(
+    disinfo_beliefs_2,
+    ordered = FALSE,
+    levels = c(1, 2, 0),
+    labels = c("2", "1", "0")
+  )) %>%
+  mutate(
     vaccines_cause_infertility = factor(
       disinfo_beliefs_3,
       ordered = FALSE,
       levels = c(1, 2, 0),
       labels = c("False", "Do not know", "True")
     )
-  ) %>% mutate(climate_change_true = factor(
+  ) %>%
+    mutate(accuracy3 = factor(
+    disinfo_beliefs_3,
+    ordered = FALSE,
+    levels = c(1, 2, 0),
+    labels = c("0", "1", "2")
+  )) %>%
+  mutate(climate_change_true = factor(
     disinfo_beliefs_4,
     ordered = FALSE,
     levels = c(1, 2, 0),
     labels = c("False", "Do not know", "True")
+  )) %>%
+    mutate(accuracy4 = factor(
+    disinfo_beliefs_4,
+    ordered = FALSE,
+    levels = c(1, 2, 0),
+    labels = c("2", "1", "0")
   )) %>%
     mutate(gender = factor(
     gender,
@@ -279,14 +306,22 @@ df1 <- df %>%
     labels = c(
       "No college degree",
       "No college degree",
-      "No college degree",
-      "BA or Associate",
-      "BA or Associate",
-      "Postgrad",
-      "Postgrad",
-      "Postgrad"
+      "Some college or Associate",
+      "Some college or Associate",
+      "BA",
+      "MA and Postgrad",
+      "MA and Postgrad",
+      "MA and Postgrad"
     )
   )) %>%
+# Did not graduate from high school
+# High school graduate (high school diploma or equivalent including GED)
+# Some college, but no degree (yet)
+# Associate degree in college (2-year)
+# Bachelor's degree in college (4-year, e.g., BA, BS)
+# Master's degree (e.g., MA, MS, MBA)
+# Doctoral degree (e.g., PhD)
+# Professional degree (e.g., JD, MD)
   mutate(ethnicity = factor(
     ethnicity,
     ordered = FALSE,
@@ -320,8 +355,29 @@ df1 <- df %>%
       "Estimate (1k-100k)",
       "Estimate (more than 100k)"
     )
-  ))
-  
+  )) 
+
+
+```
+
+```{r}
+df1 <- df1 %>% 
+   mutate(accuracy1 = as.numeric(as.character(accuracy1)), accuracy2 = as.numeric(as.character(accuracy2)), accuracy3 = as.numeric(as.character(accuracy3)), accuracy4 = as.numeric(as.character(accuracy4))
+         )%>% 
+    mutate(accuracy =  accuracy1 + accuracy2 + accuracy3 +accuracy4) %>% 
+  #median slpit for binary accuracy score
+  mutate(accuracy_binary =  ifelse(accuracy <= 2, "accurate", "inaccurate")) %>% 
+  mutate(accuracy_binary = as.factor(accuracy_binary)) 
+
+  # group_by(accuracy_binary) %>% 
+  # summarise(n = n())
+  # 
+  # acc_mean <- median(df_accuracy$accuracy)
+           
+        
+
+
+ 
 ```
 
 
@@ -340,6 +396,7 @@ scenario1a <- df1 %>%
     party,
     gender,
     election_was_stolen,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -376,6 +433,7 @@ scenario1b <- df1 %>%
     party,
     gender,
     election_was_stolen,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -411,6 +469,7 @@ scenario1c <- df1 %>%
     party,
     gender,
     election_was_stolen,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -446,6 +505,7 @@ scenario1d <- df1 %>%
     party,
     gender,
     election_was_stolen,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -559,10 +619,10 @@ scenario_1 <-
       "Consequences_medium",
       "Consequences_severe"
     )
-  )) %>%
-  # drop_na()%>%
-  mutate(choice = as.numeric(choice),
-         rating = as.numeric(rating))
+  )) 
+  # # drop_na()%>%
+  # mutate(choice = as.numeric(choice),
+  #        rating = as.numeric(rating))
 
 ```
 
@@ -578,6 +638,7 @@ Action "...published a series of posts about serious side effects of the approve
 
 ```{r, scenario 2, include = FALSE}
 
+
 scenario2a <- df1 %>%
   dplyr::select(
     id,
@@ -587,6 +648,7 @@ scenario2a <- df1 %>%
     party,
     gender,
     vaccines_cause_infertility,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -594,6 +656,8 @@ scenario2a <- df1 %>%
     agegroup,
     ideology,
     estimategroup,
+   disinfo_estimate,
+    age,
     freespeech_attitude
   ) %>%
   group_by(id) %>%
@@ -622,6 +686,7 @@ scenario2b <- df1 %>%
     party,
     gender,
     vaccines_cause_infertility,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -629,6 +694,8 @@ scenario2b <- df1 %>%
     agegroup,
     ideology,
     estimategroup,
+     disinfo_estimate,
+    age,
     freespeech_attitude
   ) %>%
   # drop_na() %>%
@@ -655,6 +722,7 @@ scenario2c <- df1 %>%
     party,
     gender,
     vaccines_cause_infertility,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -662,6 +730,8 @@ scenario2c <- df1 %>%
     agegroup,
     ideology,
     estimategroup,
+     disinfo_estimate,
+    age,
     freespeech_attitude
   ) %>%
   # drop_na() %>%
@@ -688,6 +758,7 @@ scenario2d <- df1 %>%
     party,
     gender,
     vaccines_cause_infertility,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -695,9 +766,10 @@ scenario2d <- df1 %>%
     agegroup,
     ideology,
     estimategroup,
+     disinfo_estimate,
+    age,
     freespeech_attitude
   ) %>%
-  # drop_na() %>%
   group_by(id) %>%
   pivot_longer(cols = traits2d,
                names_to = c("traits"),
@@ -711,7 +783,6 @@ scenario2d <- df1 %>%
   rename (choice = choice_2d,
           rating = rating_2d_1)
 
-# levels(scenario_2$level_7)
 
 scenario_2 <-
   rbind(scenario2a, scenario2b, scenario2c, scenario2d) %>%
@@ -805,10 +876,7 @@ scenario_2 <-
       "Consequences_medium",
       "Consequences_severe"
     )
-  )) %>%
-  # drop_na() %>%
-  mutate(choice = as.numeric(choice),
-         rating = as.numeric(rating))
+  )) 
 
 ```
 
@@ -833,6 +901,7 @@ scenario3a <- df1 %>%
     party,
     gender,
     holocaust_is_fact,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -840,6 +909,8 @@ scenario3a <- df1 %>%
     agegroup,
     ideology,
     estimategroup,
+    disinfo_estimate,
+    age,
     freespeech_attitude
   ) %>%
   group_by(id) %>%
@@ -852,7 +923,6 @@ scenario3a <- df1 %>%
   add_column(level = "level") %>%
   pivot_wider(names_from = c("level", "row"),
               values_from = "scenario3a") %>%
-  # drop_na() %>%
   rename (choice = choice_3a,
           rating = rating_3a_1)
 
@@ -867,6 +937,7 @@ scenario3b <- df1 %>%
     party,
     gender,
     holocaust_is_fact,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -874,9 +945,10 @@ scenario3b <- df1 %>%
     agegroup,
     ideology,
     estimategroup,
+    disinfo_estimate,
+    age,
     freespeech_attitude
   ) %>%
-  # drop_na() %>%
   group_by(id) %>%
   pivot_longer(cols = traits3b,
                names_to = c("traits"),
@@ -900,6 +972,7 @@ scenario3c <- df1 %>%
     party,
     gender,
     holocaust_is_fact,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -907,9 +980,10 @@ scenario3c <- df1 %>%
     agegroup,
     ideology,
     estimategroup,
+    disinfo_estimate,
+    age,
     freespeech_attitude
   ) %>%
-  # drop_na() %>%
   group_by(id) %>%
   pivot_longer(cols = traits3c,
                names_to = c("traits"),
@@ -933,6 +1007,7 @@ scenario3d <- df1 %>%
     party,
     gender,
     holocaust_is_fact,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -940,9 +1015,10 @@ scenario3d <- df1 %>%
     agegroup,
     ideology,
     estimategroup,
+    disinfo_estimate,
+    age,
     freespeech_attitude
   ) %>%
-  # drop_na() %>%
   group_by(id) %>%
   pivot_longer(cols = traits3d,
                names_to = c("traits"),
@@ -956,7 +1032,6 @@ scenario3d <- df1 %>%
   rename (choice = choice_3d,
           rating = rating_3d_1)
 
-# levels(scenario_3$level_7)
 
 scenario_3 <-
   rbind(scenario3a, scenario3b, scenario3c, scenario3d) %>%
@@ -1050,10 +1125,8 @@ scenario_3 <-
       "Consequences_medium",
       "Consequences_severe"
     )
-  )) %>%
-  # drop_na() %>%
-  mutate(choice = as.numeric(choice),
-         rating = as.numeric(rating))
+  ))
+
 
 
 
@@ -1081,6 +1154,7 @@ scenario4a <- df1 %>%
     party,
     gender,
     climate_change_true,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -1088,6 +1162,8 @@ scenario4a <- df1 %>%
     agegroup,
     ideology,
     estimategroup,
+    disinfo_estimate,
+    age,
     freespeech_attitude
   ) %>%
   group_by(id) %>%
@@ -1115,6 +1191,7 @@ scenario4b <- df1 %>%
     party,
     gender,
     climate_change_true,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -1122,6 +1199,8 @@ scenario4b <- df1 %>%
     agegroup,
     ideology,
     estimategroup,
+    disinfo_estimate,
+    age,
     freespeech_attitude
   ) %>%
   # drop_na() %>%
@@ -1148,6 +1227,7 @@ scenario4c <- df1 %>%
     party,
     gender,
     climate_change_true,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -1155,6 +1235,8 @@ scenario4c <- df1 %>%
     agegroup,
     ideology,
     estimategroup,
+    disinfo_estimate,
+    age,
     freespeech_attitude
   ) %>%
   # drop_na() %>%
@@ -1181,6 +1263,7 @@ scenario4d <- df1 %>%
     party,
     gender,
     climate_change_true,
+    accuracy_binary,
     speech_disinfo_pre,
     platform_pre,
     ethnicity,
@@ -1188,6 +1271,8 @@ scenario4d <- df1 %>%
     agegroup,
     ideology,
     estimategroup,
+    disinfo_estimate,
+    age,
     freespeech_attitude
   ) %>%
   # drop_na() %>%
@@ -1305,10 +1390,8 @@ scenario_4 <-
       "Consequences_medium",
       "Consequences_severe"
     )
-  )) %>%
-  # drop_na() %>%
-  mutate(choice = as.numeric(choice),
-         rating = as.numeric(rating))
+  )) 
+
 
 ```
 
@@ -1409,16 +1492,37 @@ scenarios <-
   )) %>%
   select(-traits) %>%
   mutate (rating_rescaled = rescale(rating)) %>%
-  drop_na(contains("level"))
+  drop_na(contains("level")) 
+ 
 
+scenarios <- scenarios %>%
+      mutate(rating_bi = factor(rating,
+      levels = c(1,2,3,4),
+      labels = c("0", "0", "1","1")
+              ), .after = rating) %>% 
+  mutate(rating_bi = as.numeric(as.character(rating_bi)))
+```
 
+```{r}
 
+attr(scenarios$level_1, "label") <- "Account"
+attr(scenarios$level_2, "label") <- "Account's partisanship"
+attr(scenarios$level_3, "label") <- "Number of followers"
+attr(scenarios$level_4, "label") <- "Misinformation topic"
+attr(scenarios$level_5, "label") <- "Information's falseness"
+attr(scenarios$level_6, "label") <- "Pattern of behavior"
+attr(scenarios$level_7, "label") <- "Severity of harms"
 
-# write.csv(scenarios, here("data/scenarios.csv"))
 save(scenarios, file = "data/scenarios.RData")
+
 
 ```
 
+
+
+```{r}
+cj_freqs(scenarios, rating ~ scenario)
+```
 
 
 
